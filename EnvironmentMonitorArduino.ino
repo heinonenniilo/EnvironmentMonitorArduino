@@ -36,16 +36,15 @@
 // Definitions
 #define CP2102 1
 // #define ESPDUINO 1
-
 #define DEBUG 0
 
 #ifdef CP2102
   #include "configs/pins_CP2102.h"
-  #include "configs/iot_configs_CP2102.h"
 #else
   #include "configs/pins_ESPDUINO.h"
-  #include "configs/iot_configs_ESPDUINO.h"
 #endif
+
+#include "configs/iot_configs.h" // Place DeviceId / IOT HUB settings + WIFI settings in this file
 // Commands from IOT HUB
 #define CMD_REBOOT "REBOOT"
 // Loop definitions
@@ -557,7 +556,6 @@ esp_task_wdt_config_t twdt_config = {
 // Arduino setup and loop main functions.
 void setup() 
 {
-  Serial.begin(115200);
   pinMode(REDLEDPIN, OUTPUT);
   pinMode(GREENLEDPIN, OUTPUT);
   if (SENSORPOWERPIN) 
