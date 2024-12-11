@@ -556,7 +556,6 @@ esp_task_wdt_config_t twdt_config = {
 // Arduino setup and loop main functions.
 void setup() 
 {
-  // Serial.begin(115200);
   pinMode(REDLEDPIN, OUTPUT);
   pinMode(GREENLEDPIN, OUTPUT);
   if (SENSORPOWERPIN) 
