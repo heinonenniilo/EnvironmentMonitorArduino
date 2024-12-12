@@ -9,5 +9,5 @@
 #define DS18B20_PIN 4
 #define DS18B20_SENSORID 2
 
-// #define DS18B20_2_PIN 16
-// #define DS18B20_2_SENSORID 3
+#define DS18B20_2_PIN 17
+#define DS18B20_2_SENSORID 3
