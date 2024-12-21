@@ -130,6 +130,7 @@ int communicationErrorCount = 0;
 int successCount = 0;
 int inited = 0;
 int measureCount = 0;
+bool hasSentMessage = false;
 static unsigned long loopCount = 0;
 static unsigned long lastLoopCount = 0;
 static unsigned long lastMotionDetectedLoopCount = 0;
@@ -437,6 +438,7 @@ static int generateTelemetryPayload()
   Logger.Info("MeasureCount: " + String(measureCount));
   JsonDocument doc;
   doc["deviceId"] = IOT_CONFIG_DEVICE_ID;
+  doc["firstMessage"] = !hasSentMessage; 
   int jsonMeasureCount = 0;
   for (Sensor* sensor : sensors) 
   {
@@ -638,6 +640,7 @@ void loop() {
   { 
     if (sendTelemetry()) {
       successCount++;
+      hasSentMessage = true;
       for (Sensor* sensor : sensors)
       {
         sensor->resetAverages();
