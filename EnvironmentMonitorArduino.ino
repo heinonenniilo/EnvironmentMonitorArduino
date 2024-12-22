@@ -34,8 +34,8 @@
 #include "DS18B20Sensor.h"
 
 // Definitions
-#define CP2102 1
-// #define ESPDUINO 1
+// #define CP2102 1
+#define ESPDUINO 1
 #define DEBUG 0
 
 #ifdef CP2102
@@ -55,7 +55,7 @@
 #define SUCCESS_LIMIT 3
 #define MEASURE_LIMIT 75 
 #define MEASURE_START_LOOP_LIMIT 6
-#define MOTION_DETECTION_SHUTDOWN_DELAY 6 // In loops
+#define MOTION_DETECTION_SHUTDOWN_DELAY_MS 45000 // Set to 0 if controlled by sensor
 
 // https://iotassistant.io/esp32/fixing-error-hardware-wdt-arduino-esp32/
 #define WDT_TIMEOUT 15000 // 15 s
@@ -133,8 +133,8 @@ int measureCount = 0;
 bool hasSentMessage = false;
 static unsigned long loopCount = 0;
 static unsigned long lastLoopCount = 0;
-static unsigned long lastMotionDetectedLoopCount = 0;
 int lastMotionStatus = 0;
+static unsigned long lastMotionOnMillis = 0;
 // Sensors
 std::vector<Sensor*> sensors;
 
@@ -528,6 +528,19 @@ void setStatus(int statusToSet) {
 void checkMotionControl()
 {
   #ifdef MOTIONSENSOR_PINID
+
+  if (lastMotionOnMillis != 0) 
+  {
+    // MOTION_DETECTION_SHUTDOWN_DELAY_MS
+    if (millis() > lastMotionOnMillis && ( millis() - lastMotionOnMillis) < MOTION_DETECTION_SHUTDOWN_DELAY_MS) 
+    {
+      if (DEBUG) {
+        Logger.Info("Skipping check. Millis: " + String(millis())+ ", last motion on: " + String(lastMotionOnMillis)); 
+      }
+      return;
+    }
+  }
+
   int motionDetected = digitalRead(MOTIONSENSOR_PINID);
   if (DEBUG) 
   {
@@ -535,13 +548,20 @@ void checkMotionControl()
     Logger.Info("Last motion Status: " + String(lastMotionStatus));
   }
   int sensorIds[] = MOTIONSENSOR_OUT_PINS;  // Initialize the array
-  // MOTION_DETECTION_SHUTDOWN_DELAY
   // lastMotionDetectedLoopCount
   if (lastMotionStatus != motionDetected) 
   {
+    if (motionDetected) {
+     lastMotionOnMillis = millis(); 
+    } else {
+      lastMotionOnMillis = 0;
+    }
     for (int i = 0; i < sizeof(sensorIds) / sizeof(sensorIds[0]); i++) 
     {
-      Logger.Info("Writing sensor: " + String(sensorIds[i]) + " to: " + String(motionDetected));
+      if (DEBUG) 
+      {
+        Logger.Info("Writing sensor: " + String(sensorIds[i]) + " to: " + String(motionDetected));
+      }
       digitalWrite(sensorIds[i], motionDetected);
     }
   }
