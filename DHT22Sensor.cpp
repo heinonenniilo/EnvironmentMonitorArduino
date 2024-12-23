@@ -26,7 +26,7 @@ float DHT22Sensor::readTemperature(bool average)
     }  
     float temperature = dht.readTemperature();
     if (isnan(temperature)) {
-        Serial.print("Failed to read temperature from DHT22 on pin " + String(pin));
+        Serial.println("Failed to read temperature from DHT22 on pin " + String(pin));
         return Sensor::ERROR_FAILED_READING;
     }
     temperatureTotal += temperature;

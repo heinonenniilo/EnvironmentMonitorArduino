@@ -125,6 +125,12 @@ static char telemetry_topic[128];
 static uint32_t telemetry_send_count = 0;
 static String telemetry_payload = "{}";
 
+enum MotionControlStatus {
+    AlwaysOff = 0,
+    AlwaysOn = 1,
+    MotionControl = 2
+};
+
 // Status variables
 int communicationErrorCount = 0;
 int successCount = 0;
@@ -135,6 +141,8 @@ static unsigned long loopCount = 0;
 static unsigned long lastLoopCount = 0;
 int lastMotionStatus = 0;
 static unsigned long lastMotionOnMillis = 0;
+
+MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
 std::vector<Sensor*> sensors;
 
@@ -198,6 +206,12 @@ void handleMessageFromHub()
     Logger.Info("Reboot command from IOT HUB. Rebooting after 2 s...");
     delay(2000);
     ESP.restart();
+  }
+  MotionControlStatus status;
+  if (parseMotionControlStatus(incoming_data, status)) 
+  {
+    Logger.Info("Setting motion control status to: " + String(status));
+    motionControlStatus = status;
   }
 }
 
@@ -524,12 +538,31 @@ void setStatus(int statusToSet) {
   }
 }
 
+bool parseMotionControlStatus(const String& message, MotionControlStatus& status) {
+    const String prefix = "MOTIONCONTROLSTATUS:";
+    int index = message.indexOf(prefix); // Find the prefix in the message
+
+    if (index != -1) {
+        // Extract the number after the prefix
+        String statusValue = message.substring(index + prefix.length());
+        int statusInt = statusValue.toInt(); // Convert to an integer
+
+        // Ensure the value is within the valid range of the enum
+        if (statusInt >= AlwaysOff && statusInt <= MotionControl) {
+            status = static_cast<MotionControlStatus>(statusInt); // Cast to enum
+            return true; // Successfully parsed
+        }
+    }
+
+    return false; // Parsing failed
+}
+
 // Check motion control
 void checkMotionControl()
 {
   #ifdef MOTIONSENSOR_PINID
 
-  if (lastMotionOnMillis != 0) 
+  if (lastMotionOnMillis != 0 && motionControlStatus== MotionControl) 
   {
     // MOTION_DETECTION_SHUTDOWN_DELAY_MS
     if (millis() > lastMotionOnMillis && ( millis() - lastMotionOnMillis) < MOTION_DETECTION_SHUTDOWN_DELAY_MS) 
@@ -541,7 +574,20 @@ void checkMotionControl()
     }
   }
 
-  int motionDetected = digitalRead(MOTIONSENSOR_PINID);
+  int motionDetected = 0;
+
+  if (motionControlStatus == MotionControl) 
+  {
+    motionDetected = digitalRead(MOTIONSENSOR_PINID);
+  } else 
+  {
+    if (DEBUG) 
+    {
+      Logger.Info("Skipping motion control check. Output set to:" + String(motionControlStatus));
+    }
+    motionDetected = motionControlStatus;
+  }
+
   if (DEBUG) 
   {
     Logger.Info("Motion Status: " + String(motionDetected));
