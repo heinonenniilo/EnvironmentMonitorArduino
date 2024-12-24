@@ -141,6 +141,7 @@ static unsigned long loopCount = 0;
 static unsigned long lastLoopCount = 0;
 int lastMotionStatus = 0;
 static unsigned long lastMotionOnMillis = 0;
+unsigned long motionControlDelaysMs = MOTION_DETECTION_SHUTDOWN_DELAY_MS;
 
 MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
@@ -213,7 +214,26 @@ void handleMessageFromHub()
     Logger.Info("Setting motion control status to: " + String(status));
     motionControlStatus = status;
   }
+  unsigned long delay;
+  if (parseMotionControlDelay(incoming_data, delay))
+  {
+    Logger.Info("Setting motion control delays");
+    if (delay < 5000) 
+    {
+      Logger.Info("Motion Control Delay: 5000");
+       motionControlDelaysMs = 5000;
+    } else if (delay > 300000) 
+    {
+      Logger.Info("Motion Control Delay: 300000");
+      motionControlDelaysMs = 300000;
+    } else 
+    {
+      Logger.Info("Motion Control Delay: " + String(delay));
+      motionControlDelaysMs = delay;
+    }
+  }
 }
+
 
 #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
 static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_t event_id, void* event_data) {
@@ -540,21 +560,31 @@ void setStatus(int statusToSet) {
 
 bool parseMotionControlStatus(const String& message, MotionControlStatus& status) {
     const String prefix = "MOTIONCONTROLSTATUS:";
-    int index = message.indexOf(prefix); // Find the prefix in the message
-
+    int index = message.indexOf(prefix); 
     if (index != -1) {
-        // Extract the number after the prefix
         String statusValue = message.substring(index + prefix.length());
-        int statusInt = statusValue.toInt(); // Convert to an integer
-
-        // Ensure the value is within the valid range of the enum
+        int statusInt = statusValue.toInt(); 
         if (statusInt >= AlwaysOff && statusInt <= MotionControl) {
-            status = static_cast<MotionControlStatus>(statusInt); // Cast to enum
-            return true; // Successfully parsed
+            status = static_cast<MotionControlStatus>(statusInt); 
+            return true; 
         }
     }
+    return false; 
+}
 
-    return false; // Parsing failed
+bool parseMotionControlDelay(const String& message, unsigned long& delayMs) {
+    const String prefix = "MOTIONCONTROLDELAY:";
+    int index = message.indexOf(prefix); // Find the prefix in the message
+    if (index != -1) {
+        String delayValue = message.substring(index + prefix.length());
+        unsigned long delayInt = delayValue.toInt(); // Convert to an integer
+
+        if (delayInt > 0) {
+            delayMs = delayInt;
+            return true;
+        }
+    }
+    return false; 
 }
 
 // Check motion control
@@ -565,7 +595,7 @@ void checkMotionControl()
   if (lastMotionOnMillis != 0 && motionControlStatus== MotionControl) 
   {
     // MOTION_DETECTION_SHUTDOWN_DELAY_MS
-    if (millis() > lastMotionOnMillis && ( millis() - lastMotionOnMillis) < MOTION_DETECTION_SHUTDOWN_DELAY_MS) 
+    if (millis() > lastMotionOnMillis && ( millis() - lastMotionOnMillis) < motionControlDelaysMs) 
     {
       if (DEBUG) {
         Logger.Info("Skipping check. Millis: " + String(millis())+ ", last motion on: " + String(lastMotionOnMillis)); 
