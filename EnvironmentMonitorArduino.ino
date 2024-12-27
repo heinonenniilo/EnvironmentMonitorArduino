@@ -125,6 +125,12 @@ static char telemetry_topic[128];
 static uint32_t telemetry_send_count = 0;
 static String telemetry_payload = "{}";
 
+enum MotionControlStatus {
+    AlwaysOff = 0,
+    AlwaysOn = 1,
+    MotionControl = 2
+};
+
 // Status variables
 int communicationErrorCount = 0;
 int successCount = 0;
@@ -135,6 +141,9 @@ static unsigned long loopCount = 0;
 static unsigned long lastLoopCount = 0;
 int lastMotionStatus = 0;
 static unsigned long lastMotionOnMillis = 0;
+unsigned long motionControlDelaysMs = MOTION_DETECTION_SHUTDOWN_DELAY_MS;
+
+MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
 std::vector<Sensor*> sensors;
 
@@ -199,7 +208,32 @@ void handleMessageFromHub()
     delay(2000);
     ESP.restart();
   }
+  MotionControlStatus status;
+  if (parseMotionControlStatus(incoming_data, status)) 
+  {
+    Logger.Info("Setting motion control status to: " + String(status));
+    motionControlStatus = status;
+  }
+  unsigned long delay;
+  if (parseMotionControlDelay(incoming_data, delay))
+  {
+    Logger.Info("Setting motion control delays");
+    if (delay < 5000) 
+    {
+      Logger.Info("Motion Control Delay: 5000");
+       motionControlDelaysMs = 5000;
+    } else if (delay > 300000) 
+    {
+      Logger.Info("Motion Control Delay: 300000");
+      motionControlDelaysMs = 300000;
+    } else 
+    {
+      Logger.Info("Motion Control Delay: " + String(delay));
+      motionControlDelaysMs = delay;
+    }
+  }
 }
+
 
 #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
 static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_t event_id, void* event_data) {
@@ -524,15 +558,44 @@ void setStatus(int statusToSet) {
   }
 }
 
+bool parseMotionControlStatus(const String& message, MotionControlStatus& status) {
+    const String prefix = "MOTIONCONTROLSTATUS:";
+    int index = message.indexOf(prefix); 
+    if (index != -1) {
+        String statusValue = message.substring(index + prefix.length());
+        int statusInt = statusValue.toInt(); 
+        if (statusInt >= AlwaysOff && statusInt <= MotionControl) {
+            status = static_cast<MotionControlStatus>(statusInt); 
+            return true; 
+        }
+    }
+    return false; 
+}
+
+bool parseMotionControlDelay(const String& message, unsigned long& delayMs) {
+    const String prefix = "MOTIONCONTROLDELAY:";
+    int index = message.indexOf(prefix); // Find the prefix in the message
+    if (index != -1) {
+        String delayValue = message.substring(index + prefix.length());
+        unsigned long delayInt = delayValue.toInt(); // Convert to an integer
+
+        if (delayInt > 0) {
+            delayMs = delayInt;
+            return true;
+        }
+    }
+    return false; 
+}
+
 // Check motion control
 void checkMotionControl()
 {
   #ifdef MOTIONSENSOR_PINID
 
-  if (lastMotionOnMillis != 0) 
+  if (lastMotionOnMillis != 0 && motionControlStatus== MotionControl) 
   {
     // MOTION_DETECTION_SHUTDOWN_DELAY_MS
-    if (millis() > lastMotionOnMillis && ( millis() - lastMotionOnMillis) < MOTION_DETECTION_SHUTDOWN_DELAY_MS) 
+    if (millis() > lastMotionOnMillis && ( millis() - lastMotionOnMillis) < motionControlDelaysMs) 
     {
       if (DEBUG) {
         Logger.Info("Skipping check. Millis: " + String(millis())+ ", last motion on: " + String(lastMotionOnMillis)); 
@@ -541,7 +604,20 @@ void checkMotionControl()
     }
   }
 
-  int motionDetected = digitalRead(MOTIONSENSOR_PINID);
+  int motionDetected = 0;
+
+  if (motionControlStatus == MotionControl) 
+  {
+    motionDetected = digitalRead(MOTIONSENSOR_PINID);
+  } else 
+  {
+    if (DEBUG) 
+    {
+      Logger.Info("Skipping motion control check. Output set to:" + String(motionControlStatus));
+    }
+    motionDetected = motionControlStatus;
+  }
+
   if (DEBUG) 
   {
     Logger.Info("Motion Status: " + String(motionDetected));
