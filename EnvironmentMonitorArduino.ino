@@ -39,7 +39,7 @@
 #include <Adafruit_SSD1306.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+#define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define USE_DISPLAY 1 // Uncomment in order not to use display
 
 #ifdef USE_DISPLAY
@@ -451,11 +451,29 @@ int calculateMeasurements()
   float humi = 0;
   float tempC = 0;
   bool readingFailed = false;
+
+  #ifdef USE_DISPLAY
+    display.clearDisplay();
+    display.setCursor(0,0);
+  #endif
+
   for (Sensor* sensor : sensors) 
   {
     tempC = sensor->readTemperature(false);
     humi = sensor->readHumidity(false);
     int sensorId = sensor->getSensorId();
+    #ifdef USE_DISPLAY
+      String messageToPrint = String(sensorId) + ": ";
+      if (tempC != Sensor::ERROR_FAILED_READING && tempC != Sensor::ERROR_UNSUPPORTED) 
+      {
+        messageToPrint = messageToPrint + String(tempC) + " C";
+      }
+      if (humi != Sensor::ERROR_FAILED_READING && humi != Sensor::ERROR_UNSUPPORTED)
+      {
+        messageToPrint = messageToPrint + ", " + String(humi) + " %";
+      }
+      display.println(messageToPrint);  
+    #endif  
     if (loopCount <= MEASURE_START_LOOP_LIMIT) 
     {
       sensor->resetAverages();
@@ -467,6 +485,10 @@ int calculateMeasurements()
       readingFailed = true;
     }
   }
+
+  #ifdef USE_DISPLAY
+    display.display();
+  #endif
   if (loopCount <= MEASURE_START_LOOP_LIMIT) 
   {
     return 1;
@@ -720,10 +742,12 @@ void setup()
       for(;;);
     }
     Logger.Info("DISPLAY INITED");
+    delay(2000);
+    Logger.Info("DISPLAY INITED. WILL PRINT");
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(WHITE);
-    display.setCursor(0, 10);
+    display.setCursor(0,0);
     // Display static text
     display.println("App initing");
     display.display();
