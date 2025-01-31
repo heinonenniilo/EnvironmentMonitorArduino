@@ -41,15 +41,14 @@
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 #define USE_DISPLAY 1 // Uncomment in order not to use display
+#define DISPLAY_TEXT_SIZE 1
 
 #ifdef USE_DISPLAY
   Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 #endif
 
-
-
 // Definitions
-// #define CP2102 1
+//#define CP2102 1
 #define ESPDUINO 1
 #define DEBUG 0
 
@@ -485,8 +484,12 @@ int calculateMeasurements()
       readingFailed = true;
     }
   }
-
   #ifdef USE_DISPLAY
+    int arraySize = sensors.size();
+    if (arraySize < 4) 
+    {
+      display.println("Measure count: " + String(measureCount) + "/" + String(MEASURE_LIMIT));
+    } 
     display.display();
   #endif
   if (loopCount <= MEASURE_START_LOOP_LIMIT) 
@@ -743,13 +746,13 @@ void setup()
     }
     Logger.Info("DISPLAY INITED");
     delay(2000);
-    Logger.Info("DISPLAY INITED. WILL PRINT");
+    Logger.Info("DISPLAY INITED. WILL PRINT");  
     display.clearDisplay();
-    display.setTextSize(1);
+    display.setTextSize(DISPLAY_TEXT_SIZE);
     display.setTextColor(WHITE);
     display.setCursor(0,0);
     // Display static text
-    display.println("App initing");
+    display.println("App initing...");
     display.display();
     delay(2000);     
   #endif
