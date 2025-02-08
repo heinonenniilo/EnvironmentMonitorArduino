@@ -36,9 +36,6 @@
 // Display
 #include <Wire.h>
 #include <Adafruit_GFX.h>
-// #include <Fonts/FreeMono12pt7b.h>
-// 
-// #include <SH1106.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // 32 // OLED display height, in pixels
