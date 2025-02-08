@@ -36,15 +36,26 @@
 // Display
 #include <Wire.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 32 // OLED display height, in pixels
+#define SCREEN_HEIGHT 64 // 32 // OLED display height, in pixels
+
 #define USE_DISPLAY 1 // Uncomment in order not to use display
+#define SH1106 1 // Uncomment to use SSD1306
+// #define SSD1306
+
 #define DISPLAY_TEXT_SIZE 1
 
 #ifdef USE_DISPLAY
-  Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+  #ifdef SH1106
+    #define DISPLAY_ROW_COUNT 8
+    #include <Adafruit_SH110X.h>
+    Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+  #else
+    #define DISPLAY_ROW_COUNT 5
+    #include <Adafruit_SSD1306.h>
+    Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+  #endif
 #endif
 
 // Definitions
@@ -148,6 +159,7 @@ enum MotionControlStatus {
 // Status variables
 int communicationErrorCount = 0;
 int successCount = 0;
+unsigned int sentMessageCount = 0;
 int inited = 0;
 int measureCount = 0;
 bool hasSentMessage = false;
@@ -485,11 +497,20 @@ int calculateMeasurements()
     }
   }
   #ifdef USE_DISPLAY
-    int arraySize = sensors.size();
-    if (arraySize < 4) 
+    int rowCount = sensors.size();
+
+    if (rowCount < DISPLAY_ROW_COUNT) 
     {
       display.println("Measure count: " + String(measureCount) + "/" + String(MEASURE_LIMIT));
-    } 
+      rowCount++;
+    }
+
+    if (rowCount < DISPLAY_ROW_COUNT) 
+    {
+      display.println("Sent messages: " + String(sentMessageCount));
+      rowCount++;
+    }
+
     display.display();
   #endif
   if (loopCount <= MEASURE_START_LOOP_LIMIT) 
@@ -718,7 +739,6 @@ void setup()
   #ifdef DS18B20_2_PIN
     sensors.push_back(new DS18B20Sensor(DS18B20_2_SENSORID, DS18B20_2_PIN));
   #endif
-
   // Delay stuff
   esp_task_wdt_deinit(); //wdt is enabled by default, so we need to deinit it first
   esp_task_wdt_init(&twdt_config); //enable panic so ESP32 restarts
@@ -736,27 +756,33 @@ void setup()
       pinMode(sensorIds[i], OUTPUT);
     } 
   #endif
-
   // Display
-
   #ifdef USE_DISPLAY
-    if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
-      Serial.println(F("SSD1306 allocation failed"));
-      for(;;);
-    }
+
+    #ifdef SH1106
+      display.begin(0x3C, true);
+    #else
+      if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
+        Serial.println(F("SSD1306 allocation failed"));
+        for(;;);
+      }
+    #endif
     Logger.Info("DISPLAY INITED");
     delay(2000);
-    Logger.Info("DISPLAY INITED. WILL PRINT");  
+    Logger.Info("DISPLAY INITED. WILL PRINT");
     display.clearDisplay();
     display.setTextSize(DISPLAY_TEXT_SIZE);
-    display.setTextColor(WHITE);
+    #ifdef SH1106
+      display.setTextColor(SH110X_WHITE);
+    #else
+      display.setTextColor(WHITE);
+    #endif
     display.setCursor(0,0);
     // Display static text
     display.println("App initing...");
     display.display();
     delay(2000);     
   #endif
-
   Logger.Info("Establish connection");
   establishConnection();
 }
@@ -795,6 +821,7 @@ void loop() {
   { 
     if (sendTelemetry()) {
       successCount++;
+      sentMessageCount++;
       hasSentMessage = true;
       for (Sensor* sensor : sensors)
       {
