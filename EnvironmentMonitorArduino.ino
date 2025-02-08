@@ -43,7 +43,7 @@
 
 #define USE_DISPLAY 1 // Uncomment in order not to use display
 #define SH1106 1 // Uncomment to use SSD1306
-// #define SSD1306
+//#define SSD1306
 
 #define DISPLAY_TEXT_SIZE 1
 
@@ -60,8 +60,8 @@
 #endif
 
 // Definitions
-//#define CP2102 1
-#define ESPDUINO 1
+#define CP2102 1
+// #define ESPDUINO 1
 #define DEBUG 0
 
 #ifdef CP2102
