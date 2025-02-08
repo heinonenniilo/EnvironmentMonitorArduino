@@ -51,9 +51,11 @@
 
 #ifdef USE_DISPLAY
   #ifdef SH1106
+    #define DISPLAY_ROW_COUNT 8
     #include <Adafruit_SH110X.h>
     Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
   #else
+    #define DISPLAY_ROW_COUNT 5
     #include <Adafruit_SSD1306.h>
     Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
   #endif
@@ -498,15 +500,20 @@ int calculateMeasurements()
     }
   }
   #ifdef USE_DISPLAY
-    int arraySize = sensors.size();
-    if (arraySize < 4) 
+    int rowCount = sensors.size();
+
+    if (rowCount < DISPLAY_ROW_COUNT) 
     {
       display.println("Measure count: " + String(measureCount) + "/" + String(MEASURE_LIMIT));
+      rowCount++;
     }
 
-    #ifdef SH1106
+    if (rowCount < DISPLAY_ROW_COUNT) 
+    {
       display.println("Sent messages: " + String(sentMessageCount));
-    #endif    
+      rowCount++;
+    }
+
     display.display();
   #endif
   if (loopCount <= MEASURE_START_LOOP_LIMIT) 
