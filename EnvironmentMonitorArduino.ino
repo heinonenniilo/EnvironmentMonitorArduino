@@ -773,10 +773,13 @@ void setup()
     Logger.Info("DISPLAY INITED");
     delay(2000);
     Logger.Info("DISPLAY INITED. WILL PRINT");
-    // display.setFont(&FreeMono12pt7b);  
     display.clearDisplay();
     display.setTextSize(DISPLAY_TEXT_SIZE);
-    display.setTextColor(SH110X_WHITE);
+    #ifdef SH1106
+      display.setTextColor(SH110X_WHITE);
+    #else
+      display.setTextColor(WHITE);
+    #endif
     display.setCursor(0,0);
     // Display static text
     display.println("App initing...");
