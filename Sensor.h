@@ -24,6 +24,7 @@ public:
     virtual void begin() = 0;
     virtual float readTemperature(bool average) {return ERROR_UNSUPPORTED;};
     virtual float readHumidity(bool average) {return ERROR_UNSUPPORTED;};
+    virtual float readLight(bool average) {return ERROR_UNSUPPORTED;};
     virtual void resetAverages();   
     virtual ~Sensor() = default;  // Virtual destructor for cleanup
 
