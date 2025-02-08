@@ -32,6 +32,7 @@
 #include "DHT22Sensor.h" 
 #include "TMP36Sensor.h"
 #include "DS18B20Sensor.h"
+#include "BH1750FVISensor.h"
 
 // Display
 #include <Wire.h>
@@ -127,7 +128,8 @@
 enum class MeasurementTypes : int {
   Undefined = 0,
   Temperature = 1,
-  Humidity = 2
+  Humidity = 2,
+  Light = 3
 };
 
 // Translate iot_configs.h defines into variables used by the sample
@@ -461,6 +463,7 @@ int calculateMeasurements()
   Logger.Info("Calculating measurements");
   float humi = 0;
   float tempC = 0;
+  float lightV = 0;
   bool readingFailed = false;
 
   #ifdef USE_DISPLAY
@@ -472,6 +475,7 @@ int calculateMeasurements()
   {
     tempC = sensor->readTemperature(false);
     humi = sensor->readHumidity(false);
+    lightV = sensor->readLight(false);
     int sensorId = sensor->getSensorId();
     #ifdef USE_DISPLAY
       String messageToPrint = String(sensorId) + ": ";
@@ -483,6 +487,11 @@ int calculateMeasurements()
       {
         messageToPrint = messageToPrint + ", " + String(humi) + " %";
       }
+
+      if (lightV != Sensor::ERROR_FAILED_READING && lightV != Sensor::ERROR_UNSUPPORTED)
+      {
+        messageToPrint = messageToPrint + String(lightV) + " lux";
+      }
       display.println(messageToPrint);  
     #endif  
     if (loopCount <= MEASURE_START_LOOP_LIMIT) 
@@ -490,7 +499,7 @@ int calculateMeasurements()
       sensor->resetAverages();
       Logger.Info("Ignoring measurements. LoopCount: " + String(loopCount));
     }
-    if (humi == Sensor::ERROR_FAILED_READING || tempC == Sensor::ERROR_FAILED_READING) 
+    if (humi == Sensor::ERROR_FAILED_READING || tempC == Sensor::ERROR_FAILED_READING || lightV == Sensor::ERROR_FAILED_READING) 
     {
       Logger.Error("Reading sensor data failed for Sensor: " + String(sensorId));
       readingFailed = true;
@@ -541,6 +550,7 @@ static int generateTelemetryPayload()
     Logger.Info("SensorId: " + String(sensorId));
     float humi = sensor->readHumidity(true); 
     float tempC = sensor->readTemperature(true);
+    float lightV = sensor->readLight(true);
     if (tempC != Sensor::ERROR_UNSUPPORTED) 
     {
       Logger.Info("TempC average: " + String(tempC));
@@ -557,6 +567,15 @@ static int generateTelemetryPayload()
       doc["measurements"][jsonMeasureCount]["TypeId"]= (int)MeasurementTypes::Humidity;
       jsonMeasureCount++;
     }
+    if (lightV != Sensor::ERROR_UNSUPPORTED) 
+    {
+      Logger.Info("Light average: " + String(lightV));
+      doc["measurements"][jsonMeasureCount]["SensorId"] = sensorId;
+      doc["measurements"][jsonMeasureCount]["SensorValue"] = lightV;
+      doc["measurements"][jsonMeasureCount]["TypeId"]= (int)MeasurementTypes::Light;
+      jsonMeasureCount++;
+    }
+
   }
   serializeJson(doc, telemetry_payload);
   measureCount = 0;
@@ -739,6 +758,15 @@ void setup()
   #ifdef DS18B20_2_PIN
     sensors.push_back(new DS18B20Sensor(DS18B20_2_SENSORID, DS18B20_2_PIN));
   #endif
+
+  #ifdef BH1750FVI_SENSORID
+    sensors.push_back(new BH1750FVISensor(BH1750FVI_SENSORID));
+  #endif
+
+  for (Sensor* sensor : sensors)
+  {
+        sensor->begin();
+  }  
   // Delay stuff
   esp_task_wdt_deinit(); //wdt is enabled by default, so we need to deinit it first
   esp_task_wdt_init(&twdt_config); //enable panic so ESP32 restarts

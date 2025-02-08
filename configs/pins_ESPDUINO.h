@@ -16,6 +16,8 @@
 #define DS18B20_2_PIN 23
 #define DS18B20_2_SENSORID 3
 
+#define BH1750FVI_SENSORID 4
+
 // MotionSensor
 // #define MOTIONSENSOR_PINID 25
 // #define MOTIONSENSOR_OUT_PINS {17,16,27}
