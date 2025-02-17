@@ -9,6 +9,9 @@ Required libraries:
   - Adafruid Unified Sensor
 - DallasTemperature
   - OneWire
+- Adafruit_SH110X
+- Adafruit_SSD1306
+- BH1750
 
 Actual IOT hub configurations to be placed in **configs**-folder. Iot_configs.h in root is an example. 
 
