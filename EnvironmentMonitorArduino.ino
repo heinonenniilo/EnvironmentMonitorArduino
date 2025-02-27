@@ -43,7 +43,7 @@
 
 #define USE_DISPLAY 1 // Uncomment in order not to use display
 #define SH1106 1 // Uncomment to use SSD1306
-//#define SSD1306
+// #define SSD1306
 
 #define DISPLAY_TEXT_SIZE 1
 
@@ -490,7 +490,7 @@ int calculateMeasurements()
 
       if (lightV != Sensor::ERROR_FAILED_READING && lightV != Sensor::ERROR_UNSUPPORTED)
       {
-        messageToPrint = messageToPrint + String(lightV) + " lux";
+        messageToPrint = messageToPrint + String(lightV) + " lx";
       }
       display.println(messageToPrint);  
     #endif  
