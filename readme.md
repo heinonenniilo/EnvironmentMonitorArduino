@@ -1,5 +1,8 @@
 # Arduino code for EnvironmentMonitor
 
+Arduino solution for reading and aggregating measurement data. The main purpose of the solution is to aggregate the measurement data and send it to Azure IoT hub. In addition, the solution can be used to display the measurement data in an Oled dispay.
+
+
 Measurement data used in https://github.com/heinonenniilo/EnvironmentMonitor is provided by this solution.
 
 Required libraries:
