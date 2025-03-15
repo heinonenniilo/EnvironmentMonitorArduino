@@ -13,6 +13,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Move iot_configs.h to configs folder
+        run: |
+          mv ./iot_configs.h ./configs/iot_configs.h
       - uses: arduino/compile-sketches@v1
         name: "Build Arduino solution"
         with:
