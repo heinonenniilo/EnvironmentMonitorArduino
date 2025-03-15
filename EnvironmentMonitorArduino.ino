@@ -62,7 +62,7 @@
 // Definitions
 #define CP2102 1
 // #define ESPDUINO 1
-#define DEBUG 0
+#define DEBUG 1
 
 #ifdef CP2102
   #include "configs/pins_CP2102.h"
@@ -681,6 +681,11 @@ void checkMotionControl()
         Logger.Info("Skipping check. Millis: " + String(millis())+ ", last motion on: " + String(lastMotionOnMillis)); 
       }
       return;
+    } else {
+      if (DEBUG) {
+          Logger.Info("Millis: " + String(millis()));
+          Logger.Info("Last motion on: " + String(lastMotionOnMillis));
+      }
     }
   }
 
@@ -692,7 +697,7 @@ void checkMotionControl()
     for (uint8_t i = 0; i < sizeof(motionControlIds) / sizeof(motionControlIds[0]); i++) 
     {
       int reading = digitalRead(motionControlIds[i]);
-      if (reading > LOW)
+      if (reading == HIGH)
       {
           motionDetected = reading;
           if (DEBUG) 
