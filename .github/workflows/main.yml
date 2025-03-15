@@ -1,4 +1,4 @@
-name: Build
+name: Build Environment Monitor Arduino
 
 on:
   push:
@@ -9,11 +9,15 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+      - name: Move iot_configs.h to configs folder
+        run: |
+          mv ./iot_configs.h ./configs/iot_configs.h
       - uses: arduino/compile-sketches@v1
+        name: "Build Arduino solution"
         with:
           fqbn: "esp32:esp32:esp32"
           platforms: |
@@ -29,5 +33,27 @@ jobs:
             - name: Adafruit SSD1306
             - name: BH1750
             - name: Adafruit GFX Library
+            - name: OneWire
           sketch-paths: |
             "."
+          enable-deltas-report: true
+      - uses: actions/upload-artifact@v4
+        name: "Upload sketches report"
+        with:
+          name: sketches-report
+          path: "sketches-reports"
+
+  report:
+    needs: build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download sketches reports artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: "sketches-reports"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: arduino/report-size-deltas@v1
+        with:
+          sketches-reports-source: "sketches-reports"
