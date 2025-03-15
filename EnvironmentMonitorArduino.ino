@@ -670,7 +670,7 @@ bool parseMotionControlDelay(const String& message, unsigned long& delayMs) {
 // Check motion control
 void checkMotionControl()
 {
-  #ifdef MOTIONSENSOR_PINID
+  #ifdef MOTIONSENSOR_IN_PINS
 
   if (lastMotionOnMillis != 0 && motionControlStatus== MotionControl) 
   {
@@ -688,7 +688,20 @@ void checkMotionControl()
 
   if (motionControlStatus == MotionControl) 
   {
-    motionDetected = digitalRead(MOTIONSENSOR_PINID);
+    uint8_t motionControlIds[] = MOTIONSENSOR_IN_PINS;
+    for (uint8_t i = 0; i < sizeof(motionControlIds) / sizeof(motionControlIds[0]); i++) 
+    {
+      int reading = digitalRead(motionControlIds[i]);
+      if (reading > LOW)
+      {
+          motionDetected = reading;
+          if (DEBUG) 
+          {
+            Logger.Info("Motion detected in pin: " + String(motionControlIds[i]));
+          }
+          continue;
+      }
+    }    
   } else 
   {
     if (DEBUG) 
@@ -703,7 +716,7 @@ void checkMotionControl()
     Logger.Info("Motion Status: " + String(motionDetected));
     Logger.Info("Last motion Status: " + String(lastMotionStatus));
   }
-  int sensorIds[] = MOTIONSENSOR_OUT_PINS;  // Initialize the array
+  uint8_t sensorIds[] = MOTIONSENSOR_OUT_PINS;  // Initialize the array
   // lastMotionDetectedLoopCount
   if (lastMotionStatus != motionDetected) 
   {
@@ -712,7 +725,7 @@ void checkMotionControl()
     } else {
       lastMotionOnMillis = 0;
     }
-    for (int i = 0; i < sizeof(sensorIds) / sizeof(sensorIds[0]); i++) 
+    for (uint8_t i = 0; i < sizeof(sensorIds) / sizeof(sensorIds[0]); i++) 
     {
       if (DEBUG) 
       {
@@ -774,15 +787,20 @@ void setup()
 
   pinMode(YELLOWLEDPIN, OUTPUT);
   setStatus(3);
-  #ifdef MOTIONSENSOR_PINID
-    Logger.Info("Setting PIN: "+ String(MOTIONSENSOR_PINID) + "as input for motion detector.");
-    pinMode(MOTIONSENSOR_PINID, INPUT);
-    int sensorIds[] = MOTIONSENSOR_OUT_PINS;  // Initialize the array
-    for (int i = 0; i < sizeof(sensorIds) / sizeof(sensorIds[0]); i++) 
+  #ifdef MOTIONSENSOR_IN_PINS
+    uint8_t sensorIds[] = MOTIONSENSOR_OUT_PINS;
+    uint8_t motionSensorIds[] = MOTIONSENSOR_IN_PINS;
+    for (uint8_t i = 0; i < sizeof(sensorIds) / sizeof(sensorIds[0]); i++) 
     {
       Logger.Info("Setting PIN: "+ String(sensorIds[i]) + "as output for motion detector.");
       pinMode(sensorIds[i], OUTPUT);
     } 
+    for (uint8_t i = 0; i < sizeof(motionSensorIds) / sizeof(motionSensorIds[0]); i++) 
+    {
+      Logger.Info("Setting PIN: "+ String(motionSensorIds[i]) + "as input for motion detector.");
+      pinMode(motionSensorIdss[i], INPUT);
+    } 
+
   #endif
   // Display
   #ifdef USE_DISPLAY
