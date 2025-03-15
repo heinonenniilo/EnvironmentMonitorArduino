@@ -1,6 +1,6 @@
 # Arduino code for EnvironmentMonitor
 
-Arduino solution for reading and aggregating measurement data. The code has been run on ESP32 devices.
+Arduino solution for reading and aggregating measurement data. The solution is meant to be run with Arduino IDE. The code has been run on ESP32 devices.
 
 The main purpose of the solution is to aggregate measurement data and send it to Azure IoT hub. The solution can also be used to display measurement data in an Oled dispay. Measurement data used in [Environment Monitor](https://github.com/heinonenniilo/EnvironmentMonitor) is provided by this solution.
 
@@ -22,6 +22,9 @@ Required libraries:
 - Adafruit_SH110X
 - Adafruit_SSD1306
 - BH1750
+
+Required boards:
+- ESP32 board support should be added to Arduino IDE. Minor changes likely needed if run with Arduino hardware.
 
 Actual IOT hub configurations to be placed in **configs**-folder. Iot_configs.h in root is an example. 
 
