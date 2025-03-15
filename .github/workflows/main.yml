@@ -9,8 +9,10 @@ on:
 
 jobs:
   build:
+    permissions:
+      id-token: write
+      contents: read
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
       - name: Move iot_configs.h to configs folder
@@ -48,6 +50,9 @@ jobs:
     needs: build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Download sketches reports artifacts
