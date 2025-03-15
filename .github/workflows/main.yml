@@ -36,3 +36,9 @@ jobs:
             - name: OneWire
           sketch-paths: |
             "."
+          enable-deltas-report: true
+      - uses: actions/upload-artifact@v4
+        name: "Upload sketches report"
+        with:
+          name: sketches-report
+          path: "sketches-reports"
