@@ -10,7 +10,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
       - name: Move iot_configs.h to configs folder
@@ -37,6 +36,7 @@ jobs:
           sketch-paths: |
             "."
           enable-deltas-report: true
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
       - uses: actions/upload-artifact@v4
         name: "Upload sketches report"
         with:
