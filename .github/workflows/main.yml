@@ -9,10 +9,6 @@ on:
 
 jobs:
   build:
-    # permissions:
-    #  id-token: write
-    #  contents: write
-    #  pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,9 +47,6 @@ jobs:
     needs: build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    # permissions:
-    #  id-token: write
-    #  contents: read
 
     steps:
       - name: Download sketches reports artifacts
