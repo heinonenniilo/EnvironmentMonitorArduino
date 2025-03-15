@@ -25,11 +25,16 @@ float BH1750FVISensor::readLight(bool average)
     }   
 
     float lux = lightMeter.readLightLevel();
+    if (lux < 0) 
+    {
+      debugPrint("Failed to read ambient light reading");
+      return Sensor::ERROR_FAILED_READING;
+    }
     lightTotal += lux;
     measureCount++;
     float lightAverage = lightTotal / measureCount;
-    debugPrint("Light: " + String(lux) + " lux");
-    debugPrint("Light avg:" + String(lightAverage) + " lux");
+    debugPrint("Light: " + String(lux) + " lx");
+    debugPrint("Light avg:" + String(lightAverage) + " lx");
     debugPrint("Measure count: " + String(measureCount));
     return lux;
 }
