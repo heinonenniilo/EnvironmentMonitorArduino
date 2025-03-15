@@ -30,5 +30,6 @@ jobs:
             - name: Adafruit SSD1306
             - name: BH1750
             - name: Adafruit GFX Library
+            - name: OneWire
           sketch-paths: |
             "."
