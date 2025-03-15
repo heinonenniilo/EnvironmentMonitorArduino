@@ -62,7 +62,7 @@
 // Definitions
 #define CP2102 1
 // #define ESPDUINO 1
-#define DEBUG 1
+#define DEBUG 0
 
 #ifdef CP2102
   #include "configs/pins_CP2102.h"
