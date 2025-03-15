@@ -798,7 +798,7 @@ void setup()
     for (uint8_t i = 0; i < sizeof(motionSensorIds) / sizeof(motionSensorIds[0]); i++) 
     {
       Logger.Info("Setting PIN: "+ String(motionSensorIds[i]) + "as input for motion detector.");
-      pinMode(motionSensorIdss[i], INPUT);
+      pinMode(motionSensorIds[i], INPUT);
     } 
 
   #endif
