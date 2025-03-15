@@ -2,7 +2,7 @@
 
 Arduino solution for reading and aggregating measurement data. The code has been run on ESP32 devices.
 
-The main purpose of the solution is to aggregate measurement data and send it to Azure IoT hub. The solution can also be used to display measurement data in an Oled dispay. Measurement data used in https://github.com/heinonenniilo/EnvironmentMonitor is provided by this solution.
+The main purpose of the solution is to aggregate measurement data and send it to Azure IoT hub. The solution can also be used to display measurement data in an Oled dispay. Measurement data used in [Environment Monitor](https://github.com/heinonenniilo/EnvironmentMonitor) is provided by this solution.
 
 In addition, functionality for reading a motion sensor and controlling outputs based on the input value has been implemented. In practice, this functionality has been used to control a relay based on motion sensor values.
 
