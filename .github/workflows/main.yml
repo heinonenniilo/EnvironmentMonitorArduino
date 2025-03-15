@@ -37,9 +37,11 @@ jobs:
           sketch-paths: |
             "."
           enable-deltas-report: true
-      - uses: arduino/report-size-deltas@v1
       - uses: actions/upload-artifact@v4
         name: "Upload sketches report"
         with:
           name: sketches-report
           path: "sketches-reports"
+      - uses: arduino/report-size-deltas@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
