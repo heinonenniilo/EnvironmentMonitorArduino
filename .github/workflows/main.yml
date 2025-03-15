@@ -1,1 +1,31 @@
+name: Build
 
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/compile-sketches@v1
+        with:
+          fqbn: "esp32:esp32:esp32"
+          platforms: |
+            - name: "esp32:esp32"
+              source-url: "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
+          libraries: |
+            - name: ArduinoJSON
+            - name: Azure SDK for C
+            - name: DHT sensor library
+            - name: Adafruit Unified Sensor
+            - name: DallasTemperature
+            - name: Adafruit SH110X
+            - name: Adafruit SSD1306
+            - name: BH1750
+            - name: Adafruit GFX Library
