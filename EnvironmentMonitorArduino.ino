@@ -33,6 +33,7 @@
 #include "TMP36Sensor.h"
 #include "DS18B20Sensor.h"
 #include "BH1750FVISensor.h"
+#include "MotionSensor.h"
 
 // Display
 #include <Wire.h>
@@ -129,7 +130,8 @@ enum class MeasurementTypes : int {
   Undefined = 0,
   Temperature = 1,
   Humidity = 2,
-  Light = 3
+  Light = 3,
+  Motion = 4
 };
 
 // Translate iot_configs.h defines into variables used by the sample
@@ -780,6 +782,14 @@ void setup()
   #ifdef BH1750FVI_SENSORID
     sensors.push_back(new BH1750FVISensor(BH1750FVI_SENSORID));
   #endif
+
+  /*
+#define MOTIONSENSOR_OUT_PINS {17,23} 
+#define MOTIONSENSOR_IN_PINS {18, 2}
+  */
+  #ifdef MOTIONSENSOR_IN_PINS
+    sensors.push_back(new MotionSensor(5, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS));
+  #endif 
 
   for (Sensor* sensor : sensors)
   {
