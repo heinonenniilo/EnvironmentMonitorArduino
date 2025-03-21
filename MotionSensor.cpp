@@ -2,24 +2,23 @@
 #include "SerialLogger.h"
 
 MotionSensor::MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsList, std::initializer_list<uint8_t> outPinsList) : Sensor(sensorId), 
-  inPins(inPinsList.begin()), 
-  outPins(outPinsList.begin()),
-  numInPins(inPinsList.size()),
-  numOutPins(outPinsList.size())  
+  inPins(inPinsList), 
+  outPins(outPinsList)
 {}
 
 void MotionSensor::begin() 
 {
   debugPrint("Starting...");
-  for (size_t i = 0; i < numInPins; i++) 
+  for (size_t i = 0; i < inPins.size(); i++) 
   {
-    debugPrint("Setting pin " + String(inPins[i]) + " as input for motion control");
+    debugPrint("Index: " + String(i));
+    debugPrint("Setting pin: " + String(inPins[i]) + " as input for motion control");
     pinMode(inPins[i], INPUT);
   }
-
-  for (size_t i = 0; i < numOutPins; i++) 
+  for (size_t i = 0; i < outPins.size(); i++) 
   {
-    debugPrint("Setting pin " + String(outPins[i]) + " as output for motion control");
+    debugPrint("Index: " + String(i));
+    debugPrint("Setting pin: " + String(outPins[i]) + " as output for motion control");
     pinMode(outPins[i], OUTPUT);
   }
   debugPrint("Motion control inited");      
@@ -49,14 +48,17 @@ void MotionSensor::checkOutputs()
     return;
   }
   unsigned long millisNow = millis();
-  if (lastMotionOnMillis != 0 && (millisNow - lastMotionOnMillis) < motionControlDelaysMs) 
+  unsigned long diff = millisNow - lastMotionOnMillis;
+  debugPrint("Diff: " + String(diff));
+  if (lastMotionOnMillis != 0 && ((millisNow - lastMotionOnMillis) < motionControlDelaysMs)) 
   {
-    debugPrint("Skipping output control. lastMotionOnMillis: " + String(lastMotionOnMillis) + ". Millis: " + String(millisNow) );
+    debugPrint("Skipping output control. lastMotionOnMillis: " + String(lastMotionOnMillis) + ". Millis: " + String(millisNow) + ", DIFF: " + String(diff) );
     return;
   }
 
   if (motionNow != lastMotionStatus) 
   {
+    debugPrint("Setting last motion status to: " + String(motionNow));
     lastMotionStatus = motionNow;
     if (motionNow) 
     {
@@ -97,7 +99,7 @@ void MotionSensor::resetAverages()
 bool MotionSensor::readCurrentMotion()
 {
   bool motionNow = 0;
-  for (uint8_t i = 0; i < numInPins; i++) 
+  for (uint8_t i = 0; i < inPins.size(); i++) 
   {
     int reading = digitalRead(inPins[i]);
     if (reading == HIGH)
@@ -113,7 +115,7 @@ bool MotionSensor::readCurrentMotion()
 void MotionSensor::setOutputs(bool mode) 
 {
   debugPrint("Setting outputs as " + String(mode));
-  for (uint8_t i = 0; i < numOutPins; i++) 
+  for (uint8_t i = 0; i < outPins.size(); i++) 
   {
     if (mode)
     {

@@ -13,15 +13,15 @@ enum MotionControlStatus {
 
 class MotionSensor : public Sensor {
 private:
-  const uint8_t* inPins;
-  const uint8_t* outPins;
+  std::vector<uint8_t> inPins;
+  std::vector<uint8_t> outPins;
   size_t numInPins;
   size_t numOutPins;
   bool motionDetected = 0; // Aggregated value
   bool lastMotionStatus = 0; 
   unsigned long lastMotionOnMillis = 0;
   MotionControlStatus motionControlStatus = MotionControl;
-  uint8_t motionControlDelaysMs = 30000; // 30 s
+  unsigned long motionControlDelaysMs = 30000; // 30 s
 
   bool readCurrentMotion();
   void setOutputs(bool mode);
