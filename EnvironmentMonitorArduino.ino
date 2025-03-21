@@ -515,7 +515,7 @@ int calculateMeasurements()
       unsigned long delayInMs = motionSensor->getOutputDelayLeft();
       if (delayInMs > 0) 
       {
-          display.println("ON delay (ms): ")
+          display.println("ON DELAY (ms): ");
           display.println(String(delayInMs)); 
           rowCount+=2;
       }
