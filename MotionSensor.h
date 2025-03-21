@@ -23,7 +23,7 @@ private:
   // Control
   MotionControlStatus motionControlStatus = MotionControl;
   unsigned long motionControlDelaysMs = 30000;
-  
+
   bool readCurrentMotion();
   void setOutputs(bool mode);
 public:
@@ -32,6 +32,8 @@ public:
     void begin() override;
     int readMotion(bool aggregate) override;
     void resetAverages() override;
+
+    unsigned long getOutputDelayLeft();
 
     void checkOutputs(); 
     void setMotionControlStatus(MotionControlStatus status);

@@ -77,6 +77,19 @@ void MotionSensor::checkOutputs()
   }
 }
 
+unsigned long MotionSensor::getOutputDelayLeft()
+{
+  if (lastMotionOnMillis != 0) 
+  {
+    unsigned long millisNow = millis();
+    unsigned long diff = millisNow - lastMotionOnMillis;
+    return motionControlDelaysMs - diff;
+  } else 
+  {
+    return 0;
+  }
+}
+
 // Set status
 void MotionSensor::setMotionControlStatus(MotionControlStatus status) 
 {

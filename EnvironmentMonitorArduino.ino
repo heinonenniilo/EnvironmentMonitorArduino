@@ -494,10 +494,9 @@ int calculateMeasurements()
         } else 
         {
           messageToPrint = messageToPrint + "OFF";
-        }
+        }   
       }
-
-      display.println(messageToPrint);  
+      display.println(messageToPrint);                           
     #endif  
     if (loopCount <= MEASURE_START_LOOP_LIMIT) 
     {
@@ -512,6 +511,15 @@ int calculateMeasurements()
   }
   #ifdef USE_DISPLAY
     int rowCount = sensors.size();
+    #ifdef MOTIONSENSOR_IN_PINS
+      unsigned long delayInMs = motionSensor->getOutputDelayLeft();
+      if (delayInMs > 0) 
+      {
+          display.println("ON delay (ms): ")
+          display.println(String(delayInMs)); 
+          rowCount+=2;
+      }
+    #endif   
 
     if (rowCount < DISPLAY_ROW_COUNT) 
     {
@@ -728,12 +736,7 @@ void setup()
     sensors.push_back(new BH1750FVISensor(BH1750FVI_SENSORID));
   #endif
 
-  /*
-#define MOTIONSENSOR_OUT_PINS {17,23} 
-#define MOTIONSENSOR_IN_PINS {18, 2}
-  */
   #ifdef MOTIONSENSOR_IN_PINS
-    // sensors.push_back(new MotionSensor(5, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS));
     motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS);
     sensors.push_back(motionSensor);
   #endif 
