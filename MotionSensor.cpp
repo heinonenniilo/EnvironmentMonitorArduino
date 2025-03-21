@@ -28,20 +28,25 @@ int MotionSensor::readMotion(bool aggregate)
 {
   if (aggregate) 
   {
-    return motionDetected;
+    return motionDetectedTelemetry;
   }
   bool motionNow = readCurrentMotion();
-  debugPrint("Motion detected: " + String(motionNow));
-  if (motionNow) 
-  {
-    motionDetected = 1;
-  }
-  return motionNow;
+  debugPrint("Motion now: " + String(motionNow));
+  debugPrint("Motion detected during loop: " + String(motionDetectedDisplay));
+  bool toReturn = motionDetectedDisplay || motionNow;
+  motionDetectedDisplay = 0;
+  return toReturn;
 }
 
+// Main control function. To be called from loop in a high interval.
 void MotionSensor::checkOutputs()
 {
-  bool motionNow = readMotion(0);
+  bool motionNow = readCurrentMotion();
+  if (motionNow) 
+  {
+    motionDetectedDisplay = motionNow;
+    motionDetectedTelemetry = motionNow;
+  }
   if (motionControlStatus != MotionControl) 
   {
     debugPrint("Motion control status is: " + String(motionControlStatus));
@@ -49,9 +54,9 @@ void MotionSensor::checkOutputs()
   }
   unsigned long millisNow = millis();
   unsigned long diff = millisNow - lastMotionOnMillis;
-  if (lastMotionOnMillis != 0 && ((diff) < motionControlDelaysMs)) 
+  if (lastMotionOnMillis != 0 && ((diff) < motionControlDelaysMs) && diff > 0) 
   {
-    debugPrint("Skipping output control. lastMotionOnMillis: " + String(lastMotionOnMillis) + ". Millis: " + String(millisNow) + ", DIFF: " + String(diff) );
+    debugPrint("Skipping output control. lastMotionOnMillis: " + String(lastMotionOnMillis) + ". Millis: " + String(millisNow) + ", DIFF: " + String(diff) + ", Limit: " + String(motionControlDelaysMs));
     return;
   }
 
@@ -103,9 +108,8 @@ void MotionSensor::setMotionControlDelay(unsigned long delayInMs)
 
 void MotionSensor::resetAverages() 
 {
-  motionDetected = 0;
+  motionDetectedTelemetry = 0;
 }
-
 
 // Private functions
 bool MotionSensor::readCurrentMotion()

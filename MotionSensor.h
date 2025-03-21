@@ -15,14 +15,15 @@ class MotionSensor : public Sensor {
 private:
   std::vector<uint8_t> inPins;
   std::vector<uint8_t> outPins;
-  size_t numInPins;
-  size_t numOutPins;
-  bool motionDetected = 0; // Aggregated value
+  bool motionDetectedTelemetry = 0; // Aggregated value, for telemetry
+  bool motionDetectedDisplay = 0; // Aggregated for display
+  // Status
   bool lastMotionStatus = 0; 
   unsigned long lastMotionOnMillis = 0;
+  // Control
   MotionControlStatus motionControlStatus = MotionControl;
-  unsigned long motionControlDelaysMs = 30000; // 30 s
-
+  unsigned long motionControlDelaysMs = 30000;
+  
   bool readCurrentMotion();
   void setOutputs(bool mode);
 public:
