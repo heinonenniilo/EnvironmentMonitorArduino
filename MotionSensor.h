@@ -34,7 +34,7 @@ public:
 
     void checkOutputs(); 
     void setMotionControlStatus(MotionControlStatus status);
-    void setMotionControlDelay(uint8_t delayInMs);
+    void setMotionControlDelay(unsigned long delayInMs);
 };
 
 #endif

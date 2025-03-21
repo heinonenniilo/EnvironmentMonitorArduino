@@ -49,8 +49,7 @@ void MotionSensor::checkOutputs()
   }
   unsigned long millisNow = millis();
   unsigned long diff = millisNow - lastMotionOnMillis;
-  debugPrint("Diff: " + String(diff));
-  if (lastMotionOnMillis != 0 && ((millisNow - lastMotionOnMillis) < motionControlDelaysMs)) 
+  if (lastMotionOnMillis != 0 && ((diff) < motionControlDelaysMs)) 
   {
     debugPrint("Skipping output control. lastMotionOnMillis: " + String(lastMotionOnMillis) + ". Millis: " + String(millisNow) + ", DIFF: " + String(diff) );
     return;
@@ -64,9 +63,11 @@ void MotionSensor::checkOutputs()
     {
       debugPrint("Motion detected at: "  + String(millisNow));
       lastMotionOnMillis = millisNow;
+      setOutputs(1);
     } else 
     {
       lastMotionOnMillis = 0;
+      setOutputs(0);
     }
   }
 }
@@ -84,8 +85,19 @@ void MotionSensor::setMotionControlStatus(MotionControlStatus status)
   }
 }
 // Set delay in ms
-void MotionSensor::setMotionControlDelay(uint8_t delayInMs)
+void MotionSensor::setMotionControlDelay(unsigned long delayInMs)
 {
+  debugPrint("Setting motion control delay");
+  unsigned long valueToSet = delayInMs;
+  if (delayInMs < 10000) 
+  {
+    valueToSet = 10000;
+  } else if (delayInMs > 600000) 
+  {
+    valueToSet = 600000;
+  } 
+
+  debugPrint("Setting motion control delay to: " + String(valueToSet));
   motionControlDelaysMs = delayInMs;
 }
 
@@ -114,7 +126,7 @@ bool MotionSensor::readCurrentMotion()
 
 void MotionSensor::setOutputs(bool mode) 
 {
-  debugPrint("Setting outputs as " + String(mode));
+  debugPrint("Setting outputs to: " + String(mode));
   for (uint8_t i = 0; i < outPins.size(); i++) 
   {
     if (mode)
