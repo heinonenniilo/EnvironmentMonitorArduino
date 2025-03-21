@@ -170,6 +170,7 @@ unsigned long motionControlDelaysMs = MOTION_DETECTION_SHUTDOWN_DELAY_MS;
 MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
 std::vector<Sensor*> sensors;
+MotionSensor* motionSensor;
 
 #define INCOMING_DATA_BUFFER_SIZE 512
 static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
@@ -236,25 +237,18 @@ void handleMessageFromHub()
   if (parseMotionControlStatus(incoming_data, status)) 
   {
     Logger.Info("Setting motion control status to: " + String(status));
-    motionControlStatus = status;
+    #ifdef MOTIONSENSOR_IN_PINS
+      motionSensor->setMotionControlStatus(status);
+    #endif
   }
   unsigned long delay;
   if (parseMotionControlDelay(incoming_data, delay))
   {
     Logger.Info("Setting motion control delays");
-    if (delay < 5000) 
-    {
-      Logger.Info("Motion Control Delay: 5000");
-       motionControlDelaysMs = 5000;
-    } else if (delay > 300000) 
-    {
-      Logger.Info("Motion Control Delay: 300000");
-      motionControlDelaysMs = 300000;
-    } else 
-    {
-      Logger.Info("Motion Control Delay: " + String(delay));
-      motionControlDelaysMs = delay;
-    }
+    #ifdef MOTIONSENSOR_IN_PINS
+      Logger.Info("Setting delay to: " + String(delay));
+      motionSensor->setMotionControlDelay(delay);
+    #endif
   }
 }
 
@@ -692,6 +686,7 @@ bool parseMotionControlDelay(const String& message, unsigned long& delayMs) {
 void checkMotionControl()
 {
   #ifdef MOTIONSENSOR_IN_PINS
+    motionSensor->checkOutputs();
   #endif
 }
 
@@ -739,7 +734,7 @@ void setup()
   */
   #ifdef MOTIONSENSOR_IN_PINS
     // sensors.push_back(new MotionSensor(5, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS));
-    MotionSensor* motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS);
+    motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS);
     sensors.push_back(motionSensor);
   #endif 
 
