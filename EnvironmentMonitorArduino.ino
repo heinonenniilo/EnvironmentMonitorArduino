@@ -154,12 +154,6 @@ static char telemetry_topic[128];
 static uint32_t telemetry_send_count = 0;
 static String telemetry_payload = "{}";
 
-enum MotionControlStatus {
-    AlwaysOff = 0,
-    AlwaysOn = 1,
-    MotionControl = 2
-};
-
 // Status variables
 int communicationErrorCount = 0;
 int successCount = 0;
@@ -466,6 +460,7 @@ int calculateMeasurements()
   float humi = 0;
   float tempC = 0;
   float lightV = 0;
+  int motionV = 0;
   bool readingFailed = false;
 
   #ifdef USE_DISPLAY
@@ -478,6 +473,8 @@ int calculateMeasurements()
     tempC = sensor->readTemperature(false);
     humi = sensor->readHumidity(false);
     lightV = sensor->readLight(false);
+    motionV = sensor->readMotion(false);
+
     int sensorId = sensor->getSensorId();
     #ifdef USE_DISPLAY
       String messageToPrint = String(sensorId) + ": ";
@@ -494,6 +491,18 @@ int calculateMeasurements()
       {
         messageToPrint = messageToPrint + String(lightV) + " lx";
       }
+
+      if (motionV >= 0) 
+      {
+        if (motionV) 
+        {
+          messageToPrint = messageToPrint + "ON";
+        } else 
+        {
+          messageToPrint = messageToPrint + "OFF";
+        }
+      }
+
       display.println(messageToPrint);  
     #endif  
     if (loopCount <= MEASURE_START_LOOP_LIMIT) 
@@ -553,6 +562,7 @@ static int generateTelemetryPayload()
     float humi = sensor->readHumidity(true); 
     float tempC = sensor->readTemperature(true);
     float lightV = sensor->readLight(true);
+    int motionV = sensor->readMotion(true);
     if (tempC != Sensor::ERROR_UNSUPPORTED) 
     {
       Logger.Info("TempC average: " + String(tempC));
@@ -575,6 +585,15 @@ static int generateTelemetryPayload()
       doc["measurements"][jsonMeasureCount]["SensorId"] = sensorId;
       doc["measurements"][jsonMeasureCount]["SensorValue"] = lightV;
       doc["measurements"][jsonMeasureCount]["TypeId"]= (int)MeasurementTypes::Light;
+      jsonMeasureCount++;
+    }
+
+    if (motionV >= 0) 
+    {
+      Logger.Info("Motion detected: " + String(motionV));
+      doc["measurements"][jsonMeasureCount]["SensorId"] = sensorId;
+      doc["measurements"][jsonMeasureCount]["SensorValue"] = motionV;
+      doc["measurements"][jsonMeasureCount]["TypeId"]= (int)MeasurementTypes::Motion;      
       jsonMeasureCount++;
     }
 
@@ -673,75 +692,6 @@ bool parseMotionControlDelay(const String& message, unsigned long& delayMs) {
 void checkMotionControl()
 {
   #ifdef MOTIONSENSOR_IN_PINS
-
-  if (lastMotionOnMillis != 0 && motionControlStatus== MotionControl) 
-  {
-    // MOTION_DETECTION_SHUTDOWN_DELAY_MS
-    if (millis() > lastMotionOnMillis && ( millis() - lastMotionOnMillis) < motionControlDelaysMs) 
-    {
-      if (DEBUG) {
-        Logger.Info("Skipping check. Millis: " + String(millis())+ ", last motion on: " + String(lastMotionOnMillis)); 
-      }
-      return;
-    } else {
-      if (DEBUG) {
-          Logger.Info("Millis: " + String(millis()));
-          Logger.Info("Last motion on: " + String(lastMotionOnMillis));
-      }
-    }
-  }
-
-  int motionDetected = 0;
-
-  if (motionControlStatus == MotionControl) 
-  {
-    uint8_t motionControlIds[] = MOTIONSENSOR_IN_PINS;
-    for (uint8_t i = 0; i < sizeof(motionControlIds) / sizeof(motionControlIds[0]); i++) 
-    {
-      int reading = digitalRead(motionControlIds[i]);
-      if (reading == HIGH)
-      {
-          motionDetected = reading;
-          if (DEBUG) 
-          {
-            Logger.Info("Motion detected in pin: " + String(motionControlIds[i]));
-          }
-          continue;
-      }
-    }    
-  } else 
-  {
-    if (DEBUG) 
-    {
-      Logger.Info("Skipping motion control check. Output set to:" + String(motionControlStatus));
-    }
-    motionDetected = motionControlStatus;
-  }
-
-  if (DEBUG) 
-  {
-    Logger.Info("Motion Status: " + String(motionDetected));
-    Logger.Info("Last motion Status: " + String(lastMotionStatus));
-  }
-  uint8_t sensorIds[] = MOTIONSENSOR_OUT_PINS;  // Initialize the array
-  // lastMotionDetectedLoopCount
-  if (lastMotionStatus != motionDetected) 
-  {
-    if (motionDetected) {
-     lastMotionOnMillis = millis(); 
-    } else {
-      lastMotionOnMillis = 0;
-    }
-    for (uint8_t i = 0; i < sizeof(sensorIds) / sizeof(sensorIds[0]); i++) 
-    {
-      if (DEBUG) 
-      {
-        Logger.Info("Writing sensor: " + String(sensorIds[i]) + " to: " + String(motionDetected));
-      }
-      digitalWrite(sensorIds[i], motionDetected);
-    }
-  }
-  lastMotionStatus = motionDetected;
   #endif
 }
 
@@ -788,7 +738,9 @@ void setup()
 #define MOTIONSENSOR_IN_PINS {18, 2}
   */
   #ifdef MOTIONSENSOR_IN_PINS
-    sensors.push_back(new MotionSensor(5, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS));
+    // sensors.push_back(new MotionSensor(5, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS));
+    MotionSensor* motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS);
+    sensors.push_back(motionSensor);
   #endif 
 
   for (Sensor* sensor : sensors)
@@ -802,21 +754,6 @@ void setup()
 
   pinMode(YELLOWLEDPIN, OUTPUT);
   setStatus(3);
-  #ifdef MOTIONSENSOR_IN_PINS
-    uint8_t sensorIds[] = MOTIONSENSOR_OUT_PINS;
-    uint8_t motionSensorIds[] = MOTIONSENSOR_IN_PINS;
-    for (uint8_t i = 0; i < sizeof(sensorIds) / sizeof(sensorIds[0]); i++) 
-    {
-      Logger.Info("Setting PIN: "+ String(sensorIds[i]) + "as output for motion detector.");
-      pinMode(sensorIds[i], OUTPUT);
-    } 
-    for (uint8_t i = 0; i < sizeof(motionSensorIds) / sizeof(motionSensorIds[0]); i++) 
-    {
-      Logger.Info("Setting PIN: "+ String(motionSensorIds[i]) + "as input for motion detector.");
-      pinMode(motionSensorIds[i], INPUT);
-    } 
-
-  #endif
   // Display
   #ifdef USE_DISPLAY
 

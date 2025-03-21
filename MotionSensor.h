@@ -5,30 +5,38 @@
 #include <Arduino.h>
 #include <initializer_list>
 
+enum MotionControlStatus {
+    AlwaysOff = 0,
+    AlwaysOn = 1,
+    MotionControl = 2
+};
+
 class MotionSensor : public Sensor {
 private:
-  const int* inPins;
-  const int* outPins;
+  const uint8_t* inPins;
+  const uint8_t* outPins;
   size_t numInPins;
   size_t numOutPins;
-  bool motionDetected = 0;
+  bool motionDetected = 0; // Aggregated value
+  bool lastMotionStatus = 0; 
+  unsigned long lastMotionOnMillis = 0;
+  MotionControlStatus motionControlStatus = MotionControl;
+  uint8_t motionControlDelaysMs = 30000; // 30 s
 
+  bool readCurrentMotion();
+  void setOutputs(bool mode);
 public:
-    MotionSensor(int sensorId, std::initializer_list<int> inPinsList, std::initializer_list<int> outPinsList);
+    MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsList, std::initializer_list<uint8_t> outPinsList);
 
     void begin() override;
-    bool readMotion(bool aggregate) override;
+    int readMotion(bool aggregate) override;
     void resetAverages() override;
+
+    void checkOutputs(); 
+    void setMotionControlStatus(MotionControlStatus status);
+    void setMotionControlDelay(uint8_t delayInMs);
 };
 
 #endif
 
 
-// virtual bool readMotion(bool aggregate) {return ERROR_UNSUPPORTED;};
-
-/*
-        : inPins(inPinsList.begin()), 
-          outPins(outPinsList.begin()), 
-          numInPins(inPinsList.size()),
-          numOutPins(outPinsList.size()) {}
-*/
