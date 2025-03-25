@@ -35,6 +35,8 @@ Supported sensors:
 - DS18B20
 - TMP36 (analog)
 - BH1750
+- HC-SR501
+  - Or any digital motion sensor.
 
 Based on:
 - https://github.com/Azure/azure-sdk-for-c-arduino
