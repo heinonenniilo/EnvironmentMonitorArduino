@@ -690,14 +690,6 @@ bool parseMotionControlDelay(const String& message, unsigned long& delayMs) {
     return false; 
 }
 
-// Check motion control
-void checkMotionControl()
-{
-  #ifdef MOTIONSENSOR_IN_PINS
-    motionSensor->checkOutputs();
-  #endif
-}
-
 esp_task_wdt_config_t twdt_config = {
         .timeout_ms = WDT_TIMEOUT,
         .idle_core_mask = (1 << CONFIG_FREERTOS_NUMBER_OF_CORES) - 1,    // Bitmask of all cores
@@ -863,7 +855,9 @@ void loop() {
       }    
     }
   }
-  checkMotionControl();
+  #ifdef MOTIONSENSOR_IN_PINS
+    motionSensor->checkOutputs();
+  #endif
   esp_task_wdt_reset();
   delay(LOOP_WAIT);
 }

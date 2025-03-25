@@ -100,6 +100,9 @@ void MotionSensor::setMotionControlStatus(MotionControlStatus status)
   if (status != MotionControl) 
   {
     setOutputs(status);
+  } else 
+  {
+    setOutputs(0);
   }
 }
 // Set delay in ms
