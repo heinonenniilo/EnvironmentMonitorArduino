@@ -33,6 +33,7 @@
 #include "TMP36Sensor.h"
 #include "DS18B20Sensor.h"
 #include "BH1750FVISensor.h"
+#include "MotionSensor.h"
 
 // Display
 #include <Wire.h>
@@ -129,7 +130,8 @@ enum class MeasurementTypes : int {
   Undefined = 0,
   Temperature = 1,
   Humidity = 2,
-  Light = 3
+  Light = 3,
+  Motion = 4
 };
 
 // Translate iot_configs.h defines into variables used by the sample
@@ -152,12 +154,6 @@ static char telemetry_topic[128];
 static uint32_t telemetry_send_count = 0;
 static String telemetry_payload = "{}";
 
-enum MotionControlStatus {
-    AlwaysOff = 0,
-    AlwaysOn = 1,
-    MotionControl = 2
-};
-
 // Status variables
 int communicationErrorCount = 0;
 int successCount = 0;
@@ -174,6 +170,7 @@ unsigned long motionControlDelaysMs = MOTION_DETECTION_SHUTDOWN_DELAY_MS;
 MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
 std::vector<Sensor*> sensors;
+MotionSensor* motionSensor;
 
 #define INCOMING_DATA_BUFFER_SIZE 512
 static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
@@ -240,25 +237,18 @@ void handleMessageFromHub()
   if (parseMotionControlStatus(incoming_data, status)) 
   {
     Logger.Info("Setting motion control status to: " + String(status));
-    motionControlStatus = status;
+    #ifdef MOTIONSENSOR_IN_PINS
+      motionSensor->setMotionControlStatus(status);
+    #endif
   }
   unsigned long delay;
   if (parseMotionControlDelay(incoming_data, delay))
   {
     Logger.Info("Setting motion control delays");
-    if (delay < 5000) 
-    {
-      Logger.Info("Motion Control Delay: 5000");
-       motionControlDelaysMs = 5000;
-    } else if (delay > 300000) 
-    {
-      Logger.Info("Motion Control Delay: 300000");
-      motionControlDelaysMs = 300000;
-    } else 
-    {
-      Logger.Info("Motion Control Delay: " + String(delay));
-      motionControlDelaysMs = delay;
-    }
+    #ifdef MOTIONSENSOR_IN_PINS
+      Logger.Info("Setting delay to: " + String(delay));
+      motionSensor->setMotionControlDelay(delay);
+    #endif
   }
 }
 
@@ -464,6 +454,7 @@ int calculateMeasurements()
   float humi = 0;
   float tempC = 0;
   float lightV = 0;
+  int motionV = 0;
   bool readingFailed = false;
 
   #ifdef USE_DISPLAY
@@ -476,6 +467,8 @@ int calculateMeasurements()
     tempC = sensor->readTemperature(false);
     humi = sensor->readHumidity(false);
     lightV = sensor->readLight(false);
+    motionV = sensor->readMotion(false);
+
     int sensorId = sensor->getSensorId();
     #ifdef USE_DISPLAY
       String messageToPrint = String(sensorId) + ": ";
@@ -492,7 +485,18 @@ int calculateMeasurements()
       {
         messageToPrint = messageToPrint + String(lightV) + " lx";
       }
-      display.println(messageToPrint);  
+
+      if (motionV >= 0) 
+      {
+        if (motionV) 
+        {
+          messageToPrint = messageToPrint + "ON";
+        } else 
+        {
+          messageToPrint = messageToPrint + "OFF";
+        }   
+      }
+      display.println(messageToPrint);                           
     #endif  
     if (loopCount <= MEASURE_START_LOOP_LIMIT) 
     {
@@ -507,6 +511,15 @@ int calculateMeasurements()
   }
   #ifdef USE_DISPLAY
     int rowCount = sensors.size();
+    #ifdef MOTIONSENSOR_IN_PINS
+      unsigned long delayInMs = motionSensor->getOutputDelayLeft();
+      if (delayInMs > 0) 
+      {
+          display.println("ON DELAY (ms): ");
+          display.println(String(delayInMs)); 
+          rowCount+=2;
+      }
+    #endif   
 
     if (rowCount < DISPLAY_ROW_COUNT) 
     {
@@ -551,6 +564,7 @@ static int generateTelemetryPayload()
     float humi = sensor->readHumidity(true); 
     float tempC = sensor->readTemperature(true);
     float lightV = sensor->readLight(true);
+    int motionV = sensor->readMotion(true);
     if (tempC != Sensor::ERROR_UNSUPPORTED) 
     {
       Logger.Info("TempC average: " + String(tempC));
@@ -573,6 +587,15 @@ static int generateTelemetryPayload()
       doc["measurements"][jsonMeasureCount]["SensorId"] = sensorId;
       doc["measurements"][jsonMeasureCount]["SensorValue"] = lightV;
       doc["measurements"][jsonMeasureCount]["TypeId"]= (int)MeasurementTypes::Light;
+      jsonMeasureCount++;
+    }
+
+    if (motionV >= 0) 
+    {
+      Logger.Info("Motion detected: " + String(motionV));
+      doc["measurements"][jsonMeasureCount]["SensorId"] = sensorId;
+      doc["measurements"][jsonMeasureCount]["SensorValue"] = motionV;
+      doc["measurements"][jsonMeasureCount]["TypeId"]= (int)MeasurementTypes::Motion;      
       jsonMeasureCount++;
     }
 
@@ -667,82 +690,6 @@ bool parseMotionControlDelay(const String& message, unsigned long& delayMs) {
     return false; 
 }
 
-// Check motion control
-void checkMotionControl()
-{
-  #ifdef MOTIONSENSOR_IN_PINS
-
-  if (lastMotionOnMillis != 0 && motionControlStatus== MotionControl) 
-  {
-    // MOTION_DETECTION_SHUTDOWN_DELAY_MS
-    if (millis() > lastMotionOnMillis && ( millis() - lastMotionOnMillis) < motionControlDelaysMs) 
-    {
-      if (DEBUG) {
-        Logger.Info("Skipping check. Millis: " + String(millis())+ ", last motion on: " + String(lastMotionOnMillis)); 
-      }
-      return;
-    } else {
-      if (DEBUG) {
-          Logger.Info("Millis: " + String(millis()));
-          Logger.Info("Last motion on: " + String(lastMotionOnMillis));
-      }
-    }
-  }
-
-  int motionDetected = 0;
-
-  if (motionControlStatus == MotionControl) 
-  {
-    uint8_t motionControlIds[] = MOTIONSENSOR_IN_PINS;
-    for (uint8_t i = 0; i < sizeof(motionControlIds) / sizeof(motionControlIds[0]); i++) 
-    {
-      int reading = digitalRead(motionControlIds[i]);
-      if (reading == HIGH)
-      {
-          motionDetected = reading;
-          if (DEBUG) 
-          {
-            Logger.Info("Motion detected in pin: " + String(motionControlIds[i]));
-          }
-          continue;
-      }
-    }    
-  } else 
-  {
-    if (DEBUG) 
-    {
-      Logger.Info("Skipping motion control check. Output set to:" + String(motionControlStatus));
-    }
-    motionDetected = motionControlStatus;
-  }
-
-  if (DEBUG) 
-  {
-    Logger.Info("Motion Status: " + String(motionDetected));
-    Logger.Info("Last motion Status: " + String(lastMotionStatus));
-  }
-  uint8_t sensorIds[] = MOTIONSENSOR_OUT_PINS;  // Initialize the array
-  // lastMotionDetectedLoopCount
-  if (lastMotionStatus != motionDetected) 
-  {
-    if (motionDetected) {
-     lastMotionOnMillis = millis(); 
-    } else {
-      lastMotionOnMillis = 0;
-    }
-    for (uint8_t i = 0; i < sizeof(sensorIds) / sizeof(sensorIds[0]); i++) 
-    {
-      if (DEBUG) 
-      {
-        Logger.Info("Writing sensor: " + String(sensorIds[i]) + " to: " + String(motionDetected));
-      }
-      digitalWrite(sensorIds[i], motionDetected);
-    }
-  }
-  lastMotionStatus = motionDetected;
-  #endif
-}
-
 esp_task_wdt_config_t twdt_config = {
         .timeout_ms = WDT_TIMEOUT,
         .idle_core_mask = (1 << CONFIG_FREERTOS_NUMBER_OF_CORES) - 1,    // Bitmask of all cores
@@ -781,6 +728,11 @@ void setup()
     sensors.push_back(new BH1750FVISensor(BH1750FVI_SENSORID));
   #endif
 
+  #ifdef MOTIONSENSOR_IN_PINS
+    motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS);
+    sensors.push_back(motionSensor);
+  #endif 
+
   for (Sensor* sensor : sensors)
   {
         sensor->begin();
@@ -792,21 +744,6 @@ void setup()
 
   pinMode(YELLOWLEDPIN, OUTPUT);
   setStatus(3);
-  #ifdef MOTIONSENSOR_IN_PINS
-    uint8_t sensorIds[] = MOTIONSENSOR_OUT_PINS;
-    uint8_t motionSensorIds[] = MOTIONSENSOR_IN_PINS;
-    for (uint8_t i = 0; i < sizeof(sensorIds) / sizeof(sensorIds[0]); i++) 
-    {
-      Logger.Info("Setting PIN: "+ String(sensorIds[i]) + "as output for motion detector.");
-      pinMode(sensorIds[i], OUTPUT);
-    } 
-    for (uint8_t i = 0; i < sizeof(motionSensorIds) / sizeof(motionSensorIds[0]); i++) 
-    {
-      Logger.Info("Setting PIN: "+ String(motionSensorIds[i]) + "as input for motion detector.");
-      pinMode(motionSensorIds[i], INPUT);
-    } 
-
-  #endif
   // Display
   #ifdef USE_DISPLAY
 
@@ -918,7 +855,9 @@ void loop() {
       }    
     }
   }
-  checkMotionControl();
+  #ifdef MOTIONSENSOR_IN_PINS
+    motionSensor->checkOutputs();
+  #endif
   esp_task_wdt_reset();
   delay(LOOP_WAIT);
 }

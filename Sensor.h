@@ -25,6 +25,7 @@ public:
     virtual float readTemperature(bool average) {return ERROR_UNSUPPORTED;};
     virtual float readHumidity(bool average) {return ERROR_UNSUPPORTED;};
     virtual float readLight(bool average) {return ERROR_UNSUPPORTED;};
+    virtual int readMotion(bool aggregate) {return -1;}; 
     virtual void resetAverages();   
     virtual ~Sensor() = default;  // Virtual destructor for cleanup
 
