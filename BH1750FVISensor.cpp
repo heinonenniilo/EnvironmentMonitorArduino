@@ -14,7 +14,6 @@ void BH1750FVISensor::begin()
 
 float BH1750FVISensor::readLight(bool average) 
 {
-    float milliVoltsAverage = 0;
     if (average) 
     {
       if (measureCount == 0) 
