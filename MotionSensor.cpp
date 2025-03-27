@@ -1,9 +1,10 @@
 #include "MotionSensor.h"
 #include "SerialLogger.h"
 
-MotionSensor::MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsList, std::initializer_list<uint8_t> outPinsList) : Sensor(sensorId), 
+MotionSensor::MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsList, std::initializer_list<uint8_t> outPinsList, bool multiTriggerMode) : Sensor(sensorId), 
   inPins(inPinsList), 
-  outPins(outPinsList)
+  outPins(outPinsList),
+  multiTriggerMode(multiTriggerMode)
 {}
 
 void MotionSensor::begin() 
@@ -52,8 +53,15 @@ void MotionSensor::checkOutputs()
     debugPrint("Motion control status is: " + String(motionControlStatus));
     return;
   }
+
   unsigned long millisNow = millis();
   unsigned long diff = millisNow - lastMotionOnMillis;
+  if (lastMotionOnMillis != 0 && motionNow && multiTriggerMode) 
+  {
+    debugPrint("LastMotionStatus: " + String(lastMotionStatus) + ", MotionNow: " + String(motionNow) + ", MultiTriggerMode: " + String(multiTriggerMode) + ". Will set lastMotionOnMillis to: " + String(millisNow));
+    lastMotionOnMillis = millisNow;
+  }
+
   if (lastMotionOnMillis != 0 && ((diff) < motionControlDelaysMs) && diff > 0) 
   {
     debugPrint("Skipping output control. lastMotionOnMillis: " + String(lastMotionOnMillis) + ". Millis: " + String(millisNow) + ", DIFF: " + String(diff) + ", Limit: " + String(motionControlDelaysMs));

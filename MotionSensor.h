@@ -17,6 +17,7 @@ private:
   std::vector<uint8_t> outPins;
   bool motionDetectedTelemetry = 0; // Aggregated value, for telemetry
   bool motionDetectedDisplay = 0; // Aggregated for display
+  bool multiTriggerMode = 1;
   // Status
   bool lastMotionStatus = 0; 
   unsigned long lastMotionOnMillis = 0;
@@ -27,7 +28,7 @@ private:
   bool readCurrentMotion();
   void setOutputs(bool mode);
 public:
-    MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsList, std::initializer_list<uint8_t> outPinsList);
+    MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsList, std::initializer_list<uint8_t> outPinsList, bool multiTriggerMode);
 
     void begin() override;
     int readMotion(bool aggregate) override;
@@ -41,5 +42,3 @@ public:
 };
 
 #endif
-
-

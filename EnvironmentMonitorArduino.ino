@@ -151,7 +151,6 @@ static char mqtt_username[512];  // Changed
 static char mqtt_password[200];
 static uint8_t sas_signature_buffer[256];
 static char telemetry_topic[128];
-static uint32_t telemetry_send_count = 0;
 static String telemetry_payload = "{}";
 
 // Status variables
@@ -164,7 +163,6 @@ bool hasSentMessage = false;
 static unsigned long loopCount = 0;
 static unsigned long lastLoopCount = 0;
 int lastMotionStatus = 0;
-static unsigned long lastMotionOnMillis = 0;
 unsigned long motionControlDelaysMs = MOTION_DETECTION_SHUTDOWN_DELAY_MS;
 
 MotionControlStatus motionControlStatus = MotionControl;
@@ -729,7 +727,7 @@ void setup()
   #endif
 
   #ifdef MOTIONSENSOR_IN_PINS
-    motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS);
+    motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS, MOTIONSENSOR_MULTI_TRIGGER_MODE);
     sensors.push_back(motionSensor);
   #endif 
 
