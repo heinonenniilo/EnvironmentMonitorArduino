@@ -87,7 +87,7 @@ void MotionSensor::checkOutputs()
 
 unsigned long MotionSensor::getOutputDelayLeft()
 {
-  if (lastMotionOnMillis != 0) 
+  if (lastMotionOnMillis != 0 && outPins.size() > 0) 
   {
     unsigned long millisNow = millis();
     unsigned long diff = millisNow - lastMotionOnMillis;
