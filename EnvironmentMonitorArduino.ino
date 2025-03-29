@@ -510,13 +510,15 @@ int calculateMeasurements()
   #ifdef USE_DISPLAY
     int rowCount = sensors.size();
     #ifdef MOTIONSENSOR_IN_PINS
-      unsigned long delayInMs = motionSensor->getOutputDelayLeft();
-      if (delayInMs > 0) 
-      {
+      #ifdef MOTIONSENSOR_DISPLAY_ON_DELAY
+        unsigned long delayInMs = motionSensor->getOutputDelayLeft();
+        if (delayInMs > 0) 
+        {
           display.println("ON DELAY (ms): ");
           display.println(String(delayInMs)); 
           rowCount+=2;
-      }
+        }
+      #endif
     #endif   
 
     if (rowCount < DISPLAY_ROW_COUNT) 
@@ -733,6 +735,7 @@ void setup()
 
   for (Sensor* sensor : sensors)
   {
+        Logger.Info("Call begin for SensorId: " + String(sensor->getSensorId()));
         sensor->begin();
   }  
   // Delay stuff

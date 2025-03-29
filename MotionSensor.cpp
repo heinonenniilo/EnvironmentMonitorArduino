@@ -10,6 +10,7 @@ MotionSensor::MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsLi
 void MotionSensor::begin() 
 {
   debugPrint("Starting...");
+  Logger.Info("Starting motion sensor");
   for (size_t i = 0; i < inPins.size(); i++) 
   {
     debugPrint("Index: " + String(i));
@@ -54,6 +55,12 @@ void MotionSensor::checkOutputs()
     return;
   }
 
+  if (outPins.size() == 0 )
+  {
+    debugPrint("No need to check outPins as no outputs defined. Returning");
+    return;
+  }
+
   unsigned long millisNow = millis();
   unsigned long diff = millisNow - lastMotionOnMillis;
   if (lastMotionOnMillis != 0 && motionNow && multiTriggerMode) 
@@ -87,7 +94,7 @@ void MotionSensor::checkOutputs()
 
 unsigned long MotionSensor::getOutputDelayLeft()
 {
-  if (lastMotionOnMillis != 0 && outPins.size() > 0) 
+  if (lastMotionOnMillis != 0) 
   {
     unsigned long millisNow = millis();
     unsigned long diff = millisNow - lastMotionOnMillis;
