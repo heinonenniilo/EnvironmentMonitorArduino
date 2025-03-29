@@ -40,7 +40,7 @@
 #include <Adafruit_GFX.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // 32 // OLED display height, in pixels
+ // 32 // OLED display height, in pixels
 
 #define USE_DISPLAY 1 // Uncomment in order not to use display
 #define SH1106 1 // Uncomment to use SSD1306
@@ -51,10 +51,12 @@
 #ifdef USE_DISPLAY
   #ifdef SH1106
     #define DISPLAY_ROW_COUNT 8
+    #define SCREEN_HEIGHT 64
     #include <Adafruit_SH110X.h>
     Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
   #else
-    #define DISPLAY_ROW_COUNT 5
+    #define DISPLAY_ROW_COUNT 4
+    #define SCREEN_HEIGHT 32
     #include <Adafruit_SSD1306.h>
     Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
   #endif
