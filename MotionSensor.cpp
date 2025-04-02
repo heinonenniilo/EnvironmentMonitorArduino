@@ -10,6 +10,7 @@ MotionSensor::MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsLi
 void MotionSensor::begin() 
 {
   debugPrint("Starting...");
+  Logger.Info("Starting motion sensor");
   for (size_t i = 0; i < inPins.size(); i++) 
   {
     debugPrint("Index: " + String(i));
@@ -51,6 +52,12 @@ void MotionSensor::checkOutputs()
   if (motionControlStatus != MotionControl) 
   {
     debugPrint("Motion control status is: " + String(motionControlStatus));
+    return;
+  }
+
+  if (outPins.size() == 0 )
+  {
+    debugPrint("No need to check outPins as no outputs defined. Returning");
     return;
   }
 
