@@ -5,6 +5,8 @@
 #include <Arduino.h>
 #include <initializer_list>
 
+#define OUTPUT_MAX_DELAY_MS 1200000
+
 enum MotionControlStatus {
     AlwaysOff = 0,
     AlwaysOn = 1,
@@ -34,7 +36,7 @@ public:
     int readMotion(bool aggregate) override;
     void resetAverages() override;
 
-    unsigned long getOutputDelayLeft();
+    float getOutputDelayLeft();
 
     void checkOutputs(); 
     void setMotionControlStatus(MotionControlStatus status);

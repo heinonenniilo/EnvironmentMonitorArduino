@@ -513,11 +513,11 @@ int calculateMeasurements()
     int rowCount = sensors.size();
     #ifdef MOTIONSENSOR_IN_PINS
       #ifdef MOTIONSENSOR_DISPLAY_ON_DELAY
-        unsigned long delayInMs = motionSensor->getOutputDelayLeft();
-        if (delayInMs > 0) 
+        float delayInS = motionSensor->getOutputDelayLeft();
+        if (delayInS > 0) 
         {
-          display.println("ON DELAY (ms): ");
-          display.println(String(delayInMs)); 
+          display.println("ON DELAY (s): ");
+          display.println(String(delayInS)); 
           rowCount+=2;
         }
       #endif

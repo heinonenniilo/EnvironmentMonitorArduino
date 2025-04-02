@@ -92,13 +92,13 @@ void MotionSensor::checkOutputs()
   }
 }
 
-unsigned long MotionSensor::getOutputDelayLeft()
+float MotionSensor::getOutputDelayLeft()
 {
   if (lastMotionOnMillis != 0) 
   {
     unsigned long millisNow = millis();
     unsigned long diff = millisNow - lastMotionOnMillis;
-    return motionControlDelaysMs - diff;
+    return (motionControlDelaysMs - diff) / (float)1000.0;
   } else 
   {
     return 0;
@@ -128,9 +128,9 @@ void MotionSensor::setMotionControlDelay(unsigned long delayInMs)
   if (delayInMs < 10000) 
   {
     valueToSet = 10000;
-  } else if (delayInMs > 600000) 
+  } else if (delayInMs > OUTPUT_MAX_DELAY_MS) 
   {
-    valueToSet = 600000;
+    valueToSet = OUTPUT_MAX_DELAY_MS;
   } 
 
   debugPrint("Setting motion control delay to: " + String(valueToSet));
