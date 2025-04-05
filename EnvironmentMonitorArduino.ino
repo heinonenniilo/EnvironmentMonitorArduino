@@ -40,8 +40,6 @@
 #include <Adafruit_GFX.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
- // 32 // OLED display height, in pixels
-
 #define USE_DISPLAY 1 // Uncomment in order not to use display
 #define SH1106 1 // Uncomment to use SSD1306
 // #define SSD1306
@@ -513,12 +511,11 @@ int calculateMeasurements()
     int rowCount = sensors.size();
     #ifdef MOTIONSENSOR_IN_PINS
       #ifdef MOTIONSENSOR_DISPLAY_ON_DELAY
-        unsigned long delayInMs = motionSensor->getOutputDelayLeft();
-        if (delayInMs > 0) 
+        float delayInS = motionSensor->getOutputDelayLeft();
+        if (delayInS > 0) 
         {
-          display.println("ON DELAY (ms): ");
-          display.println(String(delayInMs)); 
-          rowCount+=2;
+          display.println("ON DELAY (s): " + String(delayInS));
+          rowCount++;
         }
       #endif
     #endif   
