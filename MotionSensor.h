@@ -6,6 +6,7 @@
 #include <initializer_list>
 
 #define OUTPUT_MAX_DELAY_MS 1200000
+#define OUTPUT_MIN_DELAY_MS 10000
 
 enum MotionControlStatus {
     AlwaysOff = 0,

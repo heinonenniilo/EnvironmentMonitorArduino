@@ -123,11 +123,11 @@ void MotionSensor::setMotionControlStatus(MotionControlStatus status)
 // Set delay in ms
 void MotionSensor::setMotionControlDelay(unsigned long delayInMs)
 {
-  debugPrint("Setting motion control delay");
+  debugPrint("Setting motion control delay. Given value: " + String(delayInMs));
   unsigned long valueToSet = delayInMs;
-  if (delayInMs < 10000) 
+  if (delayInMs < OUTPUT_MIN_DELAY_MS) 
   {
-    valueToSet = 10000;
+    valueToSet = OUTPUT_MIN_DELAY_MS;
   } else if (delayInMs > OUTPUT_MAX_DELAY_MS) 
   {
     valueToSet = OUTPUT_MAX_DELAY_MS;
