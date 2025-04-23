@@ -475,15 +475,24 @@ int calculateMeasurements()
       if (tempC != Sensor::ERROR_FAILED_READING && tempC != Sensor::ERROR_UNSUPPORTED) 
       {
         messageToPrint = messageToPrint + String(tempC) + " C";
+      } else if (tempC == Sensor::ERROR_FAILED_READING)
+      {
+        messageToPrint = messageToPrint + "ERR" + " C";
       }
       if (humi != Sensor::ERROR_FAILED_READING && humi != Sensor::ERROR_UNSUPPORTED)
       {
         messageToPrint = messageToPrint + ", " + String(humi) + " %";
+      } else if (humi == Sensor::ERROR_FAILED_READING) 
+      {
+        messageToPrint = messageToPrint + ", ERR" + " %";
       }
 
       if (lightV != Sensor::ERROR_FAILED_READING && lightV != Sensor::ERROR_UNSUPPORTED)
       {
         messageToPrint = messageToPrint + String(lightV) + " lx";
+      } else if (lightV == Sensor::ERROR_FAILED_READING)
+      {
+        messageToPrint = messageToPrint + "ERR" + " lx";
       }
 
       if (motionV >= 0) 
@@ -552,7 +561,7 @@ int calculateMeasurements()
   // With any succeeded reading, allow to continue and increase measurement count to keep sending messages.
   measureCount++;
   Logger.Info("Calculated. Measure count: " + String(measureCount));
-  return failedReadings == 0;
+  return succeededReadings;
 }
 
 static int generateTelemetryPayload() 
