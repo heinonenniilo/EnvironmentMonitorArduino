@@ -549,9 +549,10 @@ int calculateMeasurements()
   {
     return 0;
   }
+  // With any succeeded reading, allow to continue and increase measurement count to keep sending messages.
   measureCount++;
   Logger.Info("Calculated. Measure count: " + String(measureCount));
-  return 1;
+  return failedReadings == 0;
 }
 
 static int generateTelemetryPayload() 
