@@ -454,7 +454,9 @@ int calculateMeasurements()
   float lightV = 0;
   int motionV = 0;
   bool readingFailed = false;
-
+  uint8_t succeededReadings = 0;
+  uint8_t failedReadings = 0;
+  
   #ifdef USE_DISPLAY
     display.clearDisplay();
     display.setCursor(0,0);
@@ -505,6 +507,10 @@ int calculateMeasurements()
     {
       Logger.Error("Reading sensor data failed for Sensor: " + String(sensorId));
       readingFailed = true;
+      failedReadings++;
+    } else 
+    {
+      succeededReadings++;
     }
   }
   #ifdef USE_DISPLAY
@@ -539,7 +545,7 @@ int calculateMeasurements()
     return 1;
   }
 
-  if (readingFailed) 
+  if (succeededReadings == 0) 
   {
     return 0;
   }
@@ -564,7 +570,7 @@ static int generateTelemetryPayload()
     float tempC = sensor->readTemperature(true);
     float lightV = sensor->readLight(true);
     int motionV = sensor->readMotion(true);
-    if (tempC != Sensor::ERROR_UNSUPPORTED) 
+    if (tempC != Sensor::ERROR_UNSUPPORTED && tempC != Sensor::ERROR_FAILED_READING) 
     {
       Logger.Info("TempC average: " + String(tempC));
       doc["measurements"][jsonMeasureCount]["SensorId"] = sensorId;
@@ -572,7 +578,7 @@ static int generateTelemetryPayload()
       doc["measurements"][jsonMeasureCount]["TypeId"]= (int)MeasurementTypes::Temperature;
       jsonMeasureCount++;
     }
-    if (humi != Sensor::ERROR_UNSUPPORTED) 
+    if (humi != Sensor::ERROR_UNSUPPORTED && humi != Sensor::ERROR_FAILED_READING) 
     {
       Logger.Info("Humidity average: " + String(humi));
       doc["measurements"][jsonMeasureCount]["SensorId"] = sensorId;
@@ -580,7 +586,7 @@ static int generateTelemetryPayload()
       doc["measurements"][jsonMeasureCount]["TypeId"]= (int)MeasurementTypes::Humidity;
       jsonMeasureCount++;
     }
-    if (lightV != Sensor::ERROR_UNSUPPORTED) 
+    if (lightV != Sensor::ERROR_UNSUPPORTED && lightV != Sensor::ERROR_FAILED_READING) 
     {
       Logger.Info("Light average: " + String(lightV));
       doc["measurements"][jsonMeasureCount]["SensorId"] = sensorId;

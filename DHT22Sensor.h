@@ -13,6 +13,8 @@ private:
     float humidityTotal = 0.0;
     int temperatureMeasureCount = 0;
     int humidityMeasureCount = 0;
+    bool hasReadTemperature = 0;
+    bool hasReadHumidity = 0;
 
 public:
     DHT22Sensor(int sensorId, int pin);
