@@ -13,6 +13,7 @@ private:
     int measureCount = 0;
     OneWire oneWire;           // OneWire instance
     DallasTemperature sensors; // DallasTemperature instance for managing DS18B20
+    bool hasReadTemperature = 0;
 
 public:
     DS18B20Sensor(int sensorId, int pin);
