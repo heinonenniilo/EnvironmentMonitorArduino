@@ -16,7 +16,7 @@ float BH1750FVISensor::readLight(bool average)
 {
     if (average) 
     {
-      if (measureCount == 0 || !hasReadLight) 
+      if (!measureCount) 
       {
         return Sensor::ERROR_FAILED_READING;
       }
@@ -29,7 +29,6 @@ float BH1750FVISensor::readLight(bool average)
       debugPrint("Failed to read ambient light reading");
       return Sensor::ERROR_FAILED_READING;
     }
-    hasReadLight = 1;
     lightTotal += lux;
     measureCount++;
     float lightAverage = lightTotal / measureCount;
@@ -43,5 +42,4 @@ void BH1750FVISensor::resetAverages()
 {
     measureCount = 0;
     lightTotal = 0;
-    hasReadLight = 0;
 }

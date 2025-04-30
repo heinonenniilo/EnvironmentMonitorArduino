@@ -11,7 +11,6 @@ private:
     float lightTotal = 0;
     int measureCount = 0;
     BH1750 lightMeter;
-    bool hasReadLight = 0;
 
 public:
     BH1750FVISensor(int sensorId);

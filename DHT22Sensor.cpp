@@ -14,7 +14,7 @@ float DHT22Sensor::readTemperature(bool average)
     float averageTemperature = 0;
     if (average) 
     {
-        if (temperatureMeasureCount == 0 || !hasReadTemperature) 
+        if (!temperatureMeasureCount) 
         {
           return Sensor::ERROR_FAILED_READING;
         }
@@ -29,7 +29,6 @@ float DHT22Sensor::readTemperature(bool average)
         Serial.println("Failed to read temperature from DHT22 on pin " + String(pin));
         return Sensor::ERROR_FAILED_READING;
     }
-    hasReadTemperature = 1;
     temperatureTotal += temperature;
     temperatureMeasureCount++;    
     averageTemperature = temperatureTotal / (float)temperatureMeasureCount;
@@ -45,7 +44,7 @@ float DHT22Sensor::readHumidity(bool average)
     float averageHumidity = 0;
     if (average) 
     {
-      if (humidityMeasureCount == 0 || !hasReadHumidity) 
+      if (!humidityMeasureCount) 
       { 
         return Sensor::ERROR_FAILED_READING;
       }
@@ -58,7 +57,6 @@ float DHT22Sensor::readHumidity(bool average)
         debugPrint("Failed to read humidity from DHT22 on pin ");
         return Sensor::ERROR_FAILED_READING;
     }
-    hasReadHumidity = 1;
     humidityMeasureCount++;
     humidityTotal+=humidity;
     averageHumidity = humidityTotal / (float)humidityMeasureCount;
@@ -75,6 +73,4 @@ void DHT22Sensor::resetAverages()
     humidityTotal = 0;
     humidityMeasureCount = 0;
     temperatureMeasureCount = 0;
-    hasReadHumidity = 0;
-    hasReadTemperature = 0;
 }

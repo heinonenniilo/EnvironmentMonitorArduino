@@ -12,7 +12,7 @@ float DS18B20Sensor::readTemperature(bool average)
 {
   if (average) 
   {
-    if (measureCount == 0 || !hasReadTemperature) 
+    if (!measureCount) 
     {
       return Sensor::ERROR_FAILED_READING;
     }
@@ -25,7 +25,6 @@ float DS18B20Sensor::readTemperature(bool average)
     debugPrint("Failed to read temperature. Device disconnected.");
     return Sensor::ERROR_FAILED_READING;
   }
-  hasReadTemperature = 1;
   temperatureTotal+=temperature;
   measureCount++;
   debugPrint("Temperature read: " + String(temperature) + " °C");
@@ -39,5 +38,4 @@ void DS18B20Sensor::resetAverages()
 {
     measureCount = 0;
     temperatureTotal = 0;
-    hasReadTemperature = 0;
 }
