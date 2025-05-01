@@ -14,9 +14,9 @@ float DHT22Sensor::readTemperature(bool average)
     float averageTemperature = 0;
     if (average) 
     {
-        if (temperatureMeasureCount == 0) 
+        if (!temperatureMeasureCount) 
         {
-          return 0;
+          return Sensor::ERROR_FAILED_READING;
         }
         averageTemperature = temperatureTotal / (float)temperatureMeasureCount;
         debugPrint("TempTotal: " + String(temperatureTotal));
@@ -44,9 +44,9 @@ float DHT22Sensor::readHumidity(bool average)
     float averageHumidity = 0;
     if (average) 
     {
-      if (humidityMeasureCount == 0) 
-      {
-        return 0;
+      if (!humidityMeasureCount) 
+      { 
+        return Sensor::ERROR_FAILED_READING;
       }
       averageHumidity = humidityTotal / (float)humidityMeasureCount;
       debugPrint("Average humidity: " + String(averageHumidity) );

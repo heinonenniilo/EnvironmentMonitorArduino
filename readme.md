@@ -1,4 +1,4 @@
-# Arduino code for EnvironmentMonitor
+# Environment Monitor - Arduino
 
 Arduino solution for reading and aggregating measurement data. The solution has been developed with Arduino IDE. The code has been run on ESP32 devices.
 
@@ -9,8 +9,8 @@ Additionally, functionality has been implemented for reading motion sensor input
 Azure IoT hub can also be used to communicate with device for sending basic commands, such as:
 
 - Reboot
-- Output "ON delay" after input goes to zero
-- Whether outputs are always on/off or controlled based on motion control value.
+- Output ON delay, in milli seconds, after input goes to zero
+- Whether outputs are always on/off or controlled based on motion sensor value
 
 Required libraries:
 - ArduinoJSON
