@@ -89,7 +89,7 @@
 #define CONFIG_FREERTOS_NUMBER_OF_CORES 1 
 
 #include "esp_task_wdt.h"
-
+#include "esp_system.h"
 // C99 libraries
 #include <cstdlib>
 #include <string.h>
@@ -568,9 +568,17 @@ static int generateTelemetryPayload()
 {
   Logger.Info("--Generating IOT hub message--");
   Logger.Info("MeasureCount: " + String(measureCount));
+  unsigned long millisNow = millis();
+  uint32_t randomNumber = esp_random();
   JsonDocument doc;
+  String identifier = String(randomNumber) + "_" + String(IOT_CONFIG_DEVICE_ID) + "_" + String(millisNow) + "_" + String(loopCount) + "_" + String(sentMessageCount);
+  Logger.Info("Message identifier: " + identifier);
   doc["deviceId"] = IOT_CONFIG_DEVICE_ID;
   doc["firstMessage"] = !hasSentMessage; 
+  doc["identifier"] = identifier;
+  doc["messageCount"] = sentMessageCount;
+  doc["loopCount"] = loopCount;
+  doc["uptime"] = millisNow;
   int jsonMeasureCount = 0;
   for (Sensor* sensor : sensors) 
   {
