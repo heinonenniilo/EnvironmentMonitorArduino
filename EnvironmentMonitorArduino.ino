@@ -571,7 +571,7 @@ static int generateTelemetryPayload()
   unsigned long millisNow = millis();
   uint32_t randomNumber = esp_random();
   JsonDocument doc;
-  String identifier = String(randomNumber) + "_" + String(IOT_CONFIG_DEVICE_ID) + "_" + String(millisNow) + "_" + String(loopCount) + "_" + String(sentMessageCount);
+  String identifier = String(randomNumber) + "-" + String(IOT_CONFIG_DEVICE_ID) + "-" + String(millisNow) + "-" + String(loopCount) + "-" + String(sentMessageCount);
   Logger.Info("Message identifier: " + identifier);
   doc["deviceId"] = IOT_CONFIG_DEVICE_ID;
   doc["firstMessage"] = !hasSentMessage; 
