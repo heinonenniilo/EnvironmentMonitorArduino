@@ -217,10 +217,10 @@ static String generateIdentifier(unsigned long uptime, unsigned long messageOrde
 {
   char buffer[9];
   String result;
-  // Uptime / millis
+  // Message order / count of sent messages
   sprintf(buffer, "%08X", messageOrder);
   result = String(buffer);
-  // Message order sent message count, starts from 0
+  // Uptime / millis
   sprintf(buffer, "%08X", uptime);
   result += String(buffer);
   for (uint8_t i = 0; i < numOfRandParts; i++) 
