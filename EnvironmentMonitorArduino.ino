@@ -213,6 +213,25 @@ static void initializeTime() {
   Logger.Info("Time initialized!");
 }
 
+static String generateIdentifier(unsigned long uptime, unsigned long messageOrder, uint8_t numOfRandParts=2)
+{
+  char buffer[9];
+  String result;
+  // Uptime / millis
+  sprintf(buffer, "%08X", messageOrder);
+  result = String(buffer);
+  // Message order sent message count, starts from 0
+  sprintf(buffer, "%08X", uptime);
+  result += String(buffer);
+  for (uint8_t i = 0; i < numOfRandParts; i++) 
+  {
+    sprintf(buffer, "%08X", esp_random());
+    result += String(buffer);
+  }
+
+  return result;
+}
+
 void receivedCallback(char* topic, byte* payload, unsigned int length) {
   Logger.Info("Received [");
   Logger.Info(topic);
@@ -571,7 +590,7 @@ static int generateTelemetryPayload()
   unsigned long millisNow = millis();
   uint32_t randomNumber = esp_random();
   JsonDocument doc;
-  String identifier = String(randomNumber) + "-" + String(IOT_CONFIG_DEVICE_ID) + "-" + String(millisNow) + "-" + String(loopCount) + "-" + String(sentMessageCount);
+  String identifier = generateIdentifier(millisNow, sentMessageCount);
   Logger.Info("Message identifier: " + identifier);
   doc["deviceId"] = IOT_CONFIG_DEVICE_ID;
   doc["firstMessage"] = !hasSentMessage; 
