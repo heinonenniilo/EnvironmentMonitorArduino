@@ -89,7 +89,7 @@
 #define CONFIG_FREERTOS_NUMBER_OF_CORES 1 
 
 #include "esp_task_wdt.h"
-
+#include "esp_system.h"
 // C99 libraries
 #include <cstdlib>
 #include <string.h>
@@ -211,6 +211,25 @@ static void initializeTime() {
   }
   Serial.println("");
   Logger.Info("Time initialized!");
+}
+
+static String generateIdentifier(unsigned long uptime, unsigned long messageOrder, uint8_t numOfRandParts=2)
+{
+  char buffer[9];
+  String result;
+  // Message order / count of sent messages
+  sprintf(buffer, "%08X", messageOrder);
+  result = String(buffer);
+  // Uptime / millis
+  sprintf(buffer, "%08X", uptime);
+  result += String(buffer);
+  for (uint8_t i = 0; i < numOfRandParts; i++) 
+  {
+    sprintf(buffer, "%08X", esp_random());
+    result += String(buffer);
+  }
+
+  return result;
 }
 
 void receivedCallback(char* topic, byte* payload, unsigned int length) {
@@ -568,9 +587,17 @@ static int generateTelemetryPayload()
 {
   Logger.Info("--Generating IOT hub message--");
   Logger.Info("MeasureCount: " + String(measureCount));
+  unsigned long millisNow = millis();
+  uint32_t randomNumber = esp_random();
   JsonDocument doc;
+  String identifier = generateIdentifier(millisNow, sentMessageCount);
+  Logger.Info("Message identifier: " + identifier);
   doc["deviceId"] = IOT_CONFIG_DEVICE_ID;
   doc["firstMessage"] = !hasSentMessage; 
+  doc["identifier"] = identifier;
+  doc["messageCount"] = sentMessageCount;
+  doc["loopCount"] = loopCount;
+  doc["uptime"] = millisNow;
   int jsonMeasureCount = 0;
   for (Sensor* sensor : sensors) 
   {
