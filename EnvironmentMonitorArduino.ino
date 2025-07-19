@@ -35,14 +35,19 @@
 #include "BH1750FVISensor.h"
 #include "MotionSensor.h"
 
+// RUUVI
+#include <BLEDevice.h>
+#include <BLEScan.h>
+#include "RuuviTagScanner.h"
+
 // Display
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define USE_DISPLAY 1 // Uncomment in order not to use display
-#define SH1106 1 // Uncomment to use SSD1306
-// #define SSD1306
+// #define SH1106 1 // Uncomment to use SSD1306
+#define SSD1306
 
 #define DISPLAY_TEXT_SIZE 1
 
@@ -169,6 +174,7 @@ MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
 std::vector<Sensor*> sensors;
 MotionSensor* motionSensor;
+BLEScan* pBLEScan; // RUUVI
 
 #define INCOMING_DATA_BUFFER_SIZE 512
 static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
@@ -787,6 +793,16 @@ void setup()
 
   pinMode(YELLOWLEDPIN, OUTPUT);
   setStatus(3);
+
+  // RUUVI
+  BLEDevice::init("ESP32-Ruuvi");
+  pBLEScan = BLEDevice::getScan();
+  pBLEScan->setAdvertisedDeviceCallbacks(new RuuviTagScanner());
+  pBLEScan->setActiveScan(true);  // Important for manufacturer data
+  pBLEScan->setInterval(100);
+  pBLEScan->setWindow(99);
+  // RUUVI END
+
   // Display
   #ifdef USE_DISPLAY
 
@@ -901,6 +917,9 @@ void loop() {
   #ifdef MOTIONSENSOR_IN_PINS
     motionSensor->checkOutputs();
   #endif
+  // RUUVI START
+  pBLEScan->start(5, false);
+  // RUUVIG END
   esp_task_wdt_reset();
   delay(LOOP_WAIT);
 }
