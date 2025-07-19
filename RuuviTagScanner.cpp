@@ -28,7 +28,7 @@ void RuuviTagScanner::onResult(BLEAdvertisedDevice advertisedDevice) {
       float hum  = ((uint16_t)(data[5] << 8 | data[6])) * 0.0025f;
       float pressure = ((uint16_t)(data[7] << 8 | data[8]) + 50000) / 100.0f;
 
-      Serial.println("🔹 RuuviTag:");
+      Serial.println("RuuviTag:");
       Serial.println("MAC: " + mac);
       Serial.printf("Temp: %.2f °C\n", temp);
       Serial.printf("Humidity: %.2f %%\n", hum);

@@ -25,7 +25,6 @@
  */
 
 // Sensors
-#include <DHT.h>
 #include <ArduinoJson.h>
 #include <vector>
 // Sensors implementations
@@ -34,12 +33,10 @@
 #include "DS18B20Sensor.h"
 #include "BH1750FVISensor.h"
 #include "MotionSensor.h"
-
 // RUUVI
 #include <BLEDevice.h>
 #include <BLEScan.h>
 #include "RuuviTagScanner.h"
-
 // Display
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -151,8 +148,8 @@ static const int mqtt_port = AZ_IOT_DEFAULT_MQTT_CONNECT_PORT;
 static esp_mqtt_client_handle_t mqtt_client;
 static az_iot_hub_client client;
 
-static char mqtt_client_id[512]; // Changed
-static char mqtt_username[512];  // Changed
+static char mqtt_client_id[256]; // Changed
+static char mqtt_username[256];  // Changed
 static char mqtt_password[200];
 static uint8_t sas_signature_buffer[256];
 static char telemetry_topic[128];
@@ -168,7 +165,6 @@ bool hasSentMessage = false;
 static unsigned long loopCount = 0;
 static unsigned long lastLoopCount = 0;
 int lastMotionStatus = 0;
-unsigned long motionControlDelaysMs = MOTION_DETECTION_SHUTDOWN_DELAY_MS;
 
 MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
@@ -793,16 +789,6 @@ void setup()
 
   pinMode(YELLOWLEDPIN, OUTPUT);
   setStatus(3);
-
-  // RUUVI
-  BLEDevice::init("ESP32-Ruuvi");
-  pBLEScan = BLEDevice::getScan();
-  pBLEScan->setAdvertisedDeviceCallbacks(new RuuviTagScanner());
-  pBLEScan->setActiveScan(true);  // Important for manufacturer data
-  pBLEScan->setInterval(100);
-  pBLEScan->setWindow(99);
-  // RUUVI END
-
   // Display
   #ifdef USE_DISPLAY
 
@@ -831,7 +817,18 @@ void setup()
     delay(2000);     
   #endif
   Logger.Info("Establish connection");
+  Serial.printf("Free heap (setup): %u bytes\n", ESP.getFreeHeap());
   establishConnection();
+  Serial.printf("Free heap (after connection): %u bytes\n", ESP.getFreeHeap());
+  // RUUVI
+  BLEDevice::init("ESP32-Ruuvi");
+  pBLEScan = BLEDevice::getScan();
+  pBLEScan->setAdvertisedDeviceCallbacks(new RuuviTagScanner());
+  pBLEScan->setActiveScan(true);
+  pBLEScan->setInterval(100);
+  pBLEScan->setWindow(99);
+  Serial.printf("Free heap (after ruuvi setup): %u bytes\n", ESP.getFreeHeap());
+  // RUUVI END  
 }
 
 void loop() {
@@ -857,7 +854,7 @@ void loop() {
   else if (communicationErrorCount > 0) 
   {
     setStatus(0);
-    if (communicationErrorCount > 5) 
+    if (communicationErrorCount > 20) 
     {
       Logger.Info("Trying to restart due to communication errors");
       delay(5000);
@@ -917,8 +914,16 @@ void loop() {
   #ifdef MOTIONSENSOR_IN_PINS
     motionSensor->checkOutputs();
   #endif
+
+  Serial.printf("Free heap (before scan): %u bytes\n", ESP.getFreeHeap());
+  
   // RUUVI START
+  Logger.Info("Starting RUUVI SCAN");
   pBLEScan->start(5, false);
+  pBLEScan->clearResults();
+  Logger.Info("RUUVI SCAN DONE");
+
+  Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());
   // RUUVIG END
   esp_task_wdt_reset();
   delay(LOOP_WAIT);
