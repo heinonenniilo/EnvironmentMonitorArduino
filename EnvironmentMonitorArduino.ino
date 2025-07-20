@@ -164,6 +164,7 @@ int successCount = 0;
 unsigned int sentMessageCount = 0;
 int inited = 0;
 int measureCount = 0;
+int lastRuuviMeasureCount = 0;
 bool hasSentMessage = false;
 static unsigned long loopCount = 0;
 static unsigned long lastLoopCount = 0;
@@ -653,6 +654,7 @@ static int generateTelemetryPayload()
   }
   serializeJson(doc, telemetry_payload);
   measureCount = 0;
+  lastRuuviMeasureCount = 0;
   Logger.Info("--IOT HUB message generated--");
   return 1;
 }
@@ -779,15 +781,14 @@ void setup()
     sensors.push_back(new BH1750FVISensor(BH1750FVI_SENSORID));
   #endif
 
-  #ifdef MOTIONSENSOR_IN_PINS
-    motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS, MOTIONSENSOR_MULTI_TRIGGER_MODE);
-    sensors.push_back(motionSensor);
-  #endif   
-
   #ifdef RUUVI_MAC
     sensors.push_back(scanner);
   #endif
 
+  #ifdef MOTIONSENSOR_IN_PINS
+    motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS, MOTIONSENSOR_MULTI_TRIGGER_MODE);
+    sensors.push_back(motionSensor);
+  #endif  
 
   for (Sensor* sensor : sensors)
   {
@@ -884,7 +885,7 @@ void loop() {
   else if (communicationErrorCount > 0) 
   {
     setStatus(0);
-    if (communicationErrorCount > 20) 
+    if (communicationErrorCount > 12) 
     {
       Logger.Info("Trying to restart due to communication errors");
       delay(5000);
@@ -935,12 +936,13 @@ void loop() {
       Logger.Info("Loop count: " + String(loopCount));
     }
     #ifdef RUUVI_MAC
-      if (loopCount == 20)
+      if (loopCount == 20 && !hasSentMessage)
       {
         initRuuvi();
-      } else if (loopCount > 20 && loopCount % 32 == 0)
+      } else if (measureCount != lastRuuviMeasureCount && measureCount > 0 && measureCount % 30 == 0)
       {
         readRuuvi();
+        lastRuuviMeasureCount = measureCount;
       }
     #endif
   } else {
