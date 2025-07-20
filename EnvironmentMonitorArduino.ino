@@ -33,18 +33,14 @@
 #include "DS18B20Sensor.h"
 #include "BH1750FVISensor.h"
 #include "MotionSensor.h"
-// RUUVI
-#include <BLEDevice.h>
-#include <BLEScan.h>
-#include "RuuviTagScanner.h"
 // Display
 #include <Wire.h>
 #include <Adafruit_GFX.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define USE_DISPLAY 1 // Uncomment in order not to use display
-// #define SH1106 1 // Uncomment to use SSD1306
-#define SSD1306
+#define SH1106 1 // Uncomment to use SSD1306
+// #define SSD1306
 
 #define DISPLAY_TEXT_SIZE 1
 
@@ -65,13 +61,20 @@
 // Definitions
 #define CP2102 1
 // #define ESPDUINO 1
-#define DEBUG 1
-
+#define DEBUG 0
+// PINS
 #ifdef CP2102
   #include "configs/pins_CP2102.h"
 #else
   #include "configs/pins_ESPDUINO.h"
 #endif
+// RUUVI
+#ifdef RUUVI_MAC
+  #include <BLEDevice.h>
+  #include <BLEScan.h>
+  #include "RuuviTagScanner.h"
+#endif
+
 
 #include "configs/iot_configs.h" // Place DeviceId / IOT HUB settings + WIFI settings in this file
 // Commands from IOT HUB
@@ -170,8 +173,11 @@ MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
 std::vector<Sensor*> sensors;
 MotionSensor* motionSensor;
-BLEScan* pBLEScan; // RUUVI
-RuuviTagScanner* scanner = new RuuviTagScanner();
+
+#ifdef RUUVI_MAC
+  BLEScan* pBLEScan; // RUUVI
+  RuuviTagScanner* scanner = new RuuviTagScanner(RUUVI_MAC, RUUVI_SENSORID);
+#endif
 
 #define INCOMING_DATA_BUFFER_SIZE 512
 static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
@@ -776,12 +782,17 @@ void setup()
   #ifdef MOTIONSENSOR_IN_PINS
     motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS, MOTIONSENSOR_MULTI_TRIGGER_MODE);
     sensors.push_back(motionSensor);
-  #endif 
+  #endif   
+
+  #ifdef RUUVI_MAC
+    sensors.push_back(scanner);
+  #endif
+
 
   for (Sensor* sensor : sensors)
   {
-        Logger.Info("Call begin for SensorId: " + String(sensor->getSensorId()));
-        sensor->begin();
+    Logger.Info("Call begin for SensorId: " + String(sensor->getSensorId()));
+    sensor->begin();
   }  
   // Delay stuff
   esp_task_wdt_deinit(); //wdt is enabled by default, so we need to deinit it first
@@ -821,19 +832,9 @@ void setup()
   Serial.printf("Free heap (setup): %u bytes\n", ESP.getFreeHeap());
   establishConnection();
   Serial.printf("Free heap (after connection): %u bytes\n", ESP.getFreeHeap());
-  // RUUVI
-  /*
-  BLEDevice::init("ESP32-Ruuvi");
-  pBLEScan = BLEDevice::getScan();
-  pBLEScan->setAdvertisedDeviceCallbacks(new RuuviTagScanner());
-  pBLEScan->setActiveScan(true);
-  pBLEScan->setInterval(100);
-  pBLEScan->setWindow(99);
-  Serial.printf("Free heap (after ruuvi setup): %u bytes\n", ESP.getFreeHeap());
-  */
-  // RUUVI END  
 }
 
+#ifdef RUUVI_MAC
 void initRuuvi()
 {
   Logger.Info("Free heap (before init) (bytes): " + String(ESP.getFreeHeap()));
@@ -858,6 +859,7 @@ void readRuuvi()
   Logger.Info("RUUVI SCAN DONE");
   Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());  
 }
+#endif
 
 void loop() {
   if (WiFi.status() != WL_CONNECTED) 
@@ -932,13 +934,15 @@ void loop() {
     {
       Logger.Info("Loop count: " + String(loopCount));
     }
-    if (loopCount == 20)
-    {
-      initRuuvi();
-    } else if (loopCount > 20 && loopCount % 32 == 0)
-    {
-      readRuuvi();
-    }
+    #ifdef RUUVI_MAC
+      if (loopCount == 20)
+      {
+        initRuuvi();
+      } else if (loopCount > 20 && loopCount % 32 == 0)
+      {
+        readRuuvi();
+      }
+    #endif
   } else {
     if (millis() > 4000) 
     {

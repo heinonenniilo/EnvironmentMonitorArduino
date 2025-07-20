@@ -16,7 +16,16 @@ static float parsePressure(const uint8_t* data) {
   return (raw + 50000) / 100.0f;  // Convert to hPa
 }
 
-void RuuviTagScanner::onResult(BLEAdvertisedDevice advertisedDevice) {
+
+
+void RuuviTagScanner::begin() 
+{
+  //
+  Logger.Info("Ruuvi scanner initing");
+}
+
+void RuuviTagScanner::onResult(BLEAdvertisedDevice advertisedDevice) 
+{
   String manufacturerData = advertisedDevice.getManufacturerData();
   Serial.println(manufacturerData);
   if (manufacturerData.length() >= 24) {
@@ -24,9 +33,22 @@ void RuuviTagScanner::onResult(BLEAdvertisedDevice advertisedDevice) {
 
     if (data[0] == 0x99 && data[1] == 0x04 && data[2] == 0x05) {
       String mac = advertisedDevice.getAddress().toString();
+      if (mac != allowedMac) 
+      {
+        Serial.println("MAC: ");
+        Serial.println(mac);
+        Serial.println("Not allowed");
+        return;
+      }      
       float temp = ((int16_t)(data[3] << 8 | data[4])) * 0.005f;
       float hum  = ((uint16_t)(data[5] << 8 | data[6])) * 0.0025f;
       float pressure = ((uint16_t)(data[7] << 8 | data[8]) + 50000) / 100.0f;
+      lastTemperature = temp;
+      lastHumidity = hum;
+
+      humidityTotal += hum;
+      temperatureTotal += temp;
+      measureCount++; 
 
       Serial.println("RuuviTag:");
       Serial.println("MAC: " + mac);
@@ -37,3 +59,38 @@ void RuuviTagScanner::onResult(BLEAdvertisedDevice advertisedDevice) {
     }
   }
 }
+
+float RuuviTagScanner::readTemperature(bool average) 
+{
+  if (average)
+  {
+    if (!measureCount) 
+    {
+      return Sensor::ERROR_FAILED_READING;
+    }
+    return temperatureTotal / (float)measureCount;
+  }
+  return lastTemperature;
+}
+
+float RuuviTagScanner::readHumidity(bool average) 
+{
+  if (average)
+  {
+    if (!measureCount) 
+    {
+      return Sensor::ERROR_FAILED_READING;
+    }
+    return humidityTotal / (float)measureCount;
+  }
+  return lastHumidity;
+}
+
+void RuuviTagScanner::resetAverages() 
+{
+    measureCount = 0;
+    temperatureTotal = 0;
+    humidityTotal = 0;
+}
+
+
