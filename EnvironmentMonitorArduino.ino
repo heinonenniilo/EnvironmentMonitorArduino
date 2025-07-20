@@ -170,7 +170,7 @@ MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
 std::vector<Sensor*> sensors;
 MotionSensor* motionSensor;
-// BLEScan* pBLEScan; // RUUVI
+BLEScan* pBLEScan; // RUUVI
 RuuviTagScanner* scanner = new RuuviTagScanner();
 
 #define INCOMING_DATA_BUFFER_SIZE 512
@@ -834,24 +834,29 @@ void setup()
   // RUUVI END  
 }
 
-void readRuuvi()
+void initRuuvi()
 {
-  Logger.Info("Free heap (before scan) (bytes): " + String(ESP.getFreeHeap()));
+  Logger.Info("Free heap (before init) (bytes): " + String(ESP.getFreeHeap()));
   esp_task_wdt_reset();
   BLEDevice::init("ESP32-Ruuvi");
-  BLEScan* scan = BLEDevice::getScan();
-  scan->setAdvertisedDeviceCallbacks(new RuuviTagScanner());
-  scan->setActiveScan(false);
-  scan->setInterval(100);
-  scan->setWindow(99);
-  Logger.Info("Starting scan");
-  scan->start(5, false);
-  Logger.Info("SCAN DONE");
-  scan->clearResults();
-  BLEDevice::deinit(true);
+  pBLEScan = BLEDevice::getScan();
+  pBLEScan->setAdvertisedDeviceCallbacks(scanner, false);
+  pBLEScan->setActiveScan(false);
+  pBLEScan->setInterval(100);
+  pBLEScan->setWindow(99);
+  Logger.Info("Free heap (after init) (bytes): " + String(ESP.getFreeHeap()));
+}
+
+void readRuuvi()
+{
+  Logger.Info("Reading Ruuvi");
   esp_task_wdt_reset();
-  delay(100);
-  Logger.Info("Free heap (after scan) (bytes): " + String(ESP.getFreeHeap()));
+  Logger.Info("Starting RUUVI SCAN");
+  pBLEScan->start(5, false);
+  pBLEScan->clearResults();
+  esp_task_wdt_reset();
+  Logger.Info("RUUVI SCAN DONE");
+  Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());  
 }
 
 void loop() {
@@ -927,9 +932,12 @@ void loop() {
     {
       Logger.Info("Loop count: " + String(loopCount));
     }
-    if (loopCount > 1 && loopCount % 10 == 0)
+    if (loopCount == 20)
     {
-      readRuuvi(); 
+      initRuuvi();
+    } else if (loopCount > 20 && loopCount % 32 == 0)
+    {
+      readRuuvi();
     }
   } else {
     if (millis() > 4000) 
