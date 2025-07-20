@@ -65,7 +65,7 @@
 // Definitions
 #define CP2102 1
 // #define ESPDUINO 1
-#define DEBUG 0
+#define DEBUG 1
 
 #ifdef CP2102
   #include "configs/pins_CP2102.h"
@@ -170,7 +170,8 @@ MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
 std::vector<Sensor*> sensors;
 MotionSensor* motionSensor;
-BLEScan* pBLEScan; // RUUVI
+// BLEScan* pBLEScan; // RUUVI
+RuuviTagScanner* scanner = new RuuviTagScanner();
 
 #define INCOMING_DATA_BUFFER_SIZE 512
 static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
@@ -821,6 +822,7 @@ void setup()
   establishConnection();
   Serial.printf("Free heap (after connection): %u bytes\n", ESP.getFreeHeap());
   // RUUVI
+  /*
   BLEDevice::init("ESP32-Ruuvi");
   pBLEScan = BLEDevice::getScan();
   pBLEScan->setAdvertisedDeviceCallbacks(new RuuviTagScanner());
@@ -828,7 +830,28 @@ void setup()
   pBLEScan->setInterval(100);
   pBLEScan->setWindow(99);
   Serial.printf("Free heap (after ruuvi setup): %u bytes\n", ESP.getFreeHeap());
+  */
   // RUUVI END  
+}
+
+void readRuuvi()
+{
+  Logger.Info("Free heap (before scan) (bytes): " + String(ESP.getFreeHeap()));
+  esp_task_wdt_reset();
+  BLEDevice::init("ESP32-Ruuvi");
+  BLEScan* scan = BLEDevice::getScan();
+  scan->setAdvertisedDeviceCallbacks(new RuuviTagScanner());
+  scan->setActiveScan(false);
+  scan->setInterval(100);
+  scan->setWindow(99);
+  Logger.Info("Starting scan");
+  scan->start(5, false);
+  Logger.Info("SCAN DONE");
+  scan->clearResults();
+  BLEDevice::deinit(true);
+  esp_task_wdt_reset();
+  delay(100);
+  Logger.Info("Free heap (after scan) (bytes): " + String(ESP.getFreeHeap()));
 }
 
 void loop() {
@@ -899,6 +922,15 @@ void loop() {
         successCount = 0;
       }
     }
+
+    if (DEBUG) 
+    {
+      Logger.Info("Loop count: " + String(loopCount));
+    }
+    if (loopCount > 1 && loopCount % 10 == 0)
+    {
+      readRuuvi(); 
+    }
   } else {
     if (millis() > 4000) 
     {
@@ -914,16 +946,15 @@ void loop() {
   #ifdef MOTIONSENSOR_IN_PINS
     motionSensor->checkOutputs();
   #endif
-
-  Serial.printf("Free heap (before scan): %u bytes\n", ESP.getFreeHeap());
-  
+ 
   // RUUVI START
+  /*
   Logger.Info("Starting RUUVI SCAN");
   pBLEScan->start(5, false);
   pBLEScan->clearResults();
   Logger.Info("RUUVI SCAN DONE");
-
   Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());
+  */
   // RUUVIG END
   esp_task_wdt_reset();
   delay(LOOP_WAIT);
