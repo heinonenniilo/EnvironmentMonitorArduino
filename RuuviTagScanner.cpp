@@ -45,9 +45,11 @@ void RuuviTagScanner::onResult(BLEAdvertisedDevice advertisedDevice)
       float pressure = ((uint16_t)(data[7] << 8 | data[8]) + 50000) / 100.0f;
       lastTemperature = temp;
       lastHumidity = hum;
+      lastPressure = pressure;
 
       humidityTotal += hum;
       temperatureTotal += temp;
+      pressureTotal += pressure;
       measureCount++; 
 
       Serial.println("RuuviTag:");
@@ -86,11 +88,25 @@ float RuuviTagScanner::readHumidity(bool average)
   return lastHumidity;
 }
 
+float RuuviTagScanner::readPressure(bool average) 
+{
+  if (average)
+  {
+    if (!measureCount) 
+    {
+      return Sensor::ERROR_FAILED_READING;
+    }
+    return pressureTotal / (float)measureCount;
+  }
+  return lastPressure;
+}
+
 void RuuviTagScanner::resetAverages() 
 {
     measureCount = 0;
     temperatureTotal = 0;
     humidityTotal = 0;
+    pressureTotal = 0;
 }
 
 

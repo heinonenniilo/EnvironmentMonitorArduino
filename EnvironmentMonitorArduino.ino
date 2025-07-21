@@ -12,7 +12,7 @@
 #include <Adafruit_GFX.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define USE_DISPLAY 1 // Uncomment in order not to use display
+// #define USE_DISPLAY 1 // Uncomment in order not to use display
 #define SH1106 1 // Uncomment to use SSD1306
 // #define SSD1306
 
@@ -110,7 +110,8 @@ enum class MeasurementTypes : int {
   Temperature = 1,
   Humidity = 2,
   Light = 3,
-  Motion = 4
+  Motion = 4,
+  Pressure = 5
 };
 
 // Translate iot_configs.h defines into variables used by the sample
@@ -590,6 +591,7 @@ static int generateTelemetryPayload()
     float humi = sensor->readHumidity(true); 
     float tempC = sensor->readTemperature(true);
     float lightV = sensor->readLight(true);
+    float pressureV = sensor->readPressure(true);
     int motionV = sensor->readMotion(true);
     if (tempC != Sensor::ERROR_UNSUPPORTED && tempC != Sensor::ERROR_FAILED_READING) 
     {
@@ -616,6 +618,15 @@ static int generateTelemetryPayload()
       jsonMeasureCount++;
     }
 
+    if (pressureV != Sensor::ERROR_UNSUPPORTED && pressureV != Sensor::ERROR_FAILED_READING) 
+    {
+      Logger.Info("Pressure average: " + String(pressureV));
+      doc["measurements"][jsonMeasureCount]["SensorId"] = sensorId;
+      doc["measurements"][jsonMeasureCount]["SensorValue"] = pressureV;
+      doc["measurements"][jsonMeasureCount]["TypeId"]= (int)MeasurementTypes::Pressure;
+      jsonMeasureCount++;
+    }
+
     if (motionV >= 0) 
     {
       Logger.Info("Motion detected: " + String(motionV));
@@ -624,7 +635,6 @@ static int generateTelemetryPayload()
       doc["measurements"][jsonMeasureCount]["TypeId"]= (int)MeasurementTypes::Motion;      
       jsonMeasureCount++;
     }
-
   }
   serializeJson(doc, telemetry_payload);
   measureCount = 0;
