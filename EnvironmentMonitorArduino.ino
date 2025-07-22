@@ -824,12 +824,13 @@ void initRuuvi()
 {
   Logger.Info("Free heap (before init) (bytes): " + String(ESP.getFreeHeap()));
   esp_task_wdt_reset();
-  BLEDevice::init("ESP32-Ruuvi");
+  NimBLEDevice::init("ESP32-Ruuvi");
   pBLEScan = BLEDevice::getScan();
-  pBLEScan->setAdvertisedDeviceCallbacks(scanner, false);
+  pBLEScan->setScanCallbacks(scanner, false);
   pBLEScan->setActiveScan(false);
+  pBLEScan->setMaxResults(0); // Using just the callback
   pBLEScan->setInterval(100);
-  pBLEScan->setWindow(99);
+  pBLEScan->setWindow(100);
   Logger.Info("Free heap (after init) (bytes): " + String(ESP.getFreeHeap()));
 }
 
@@ -838,8 +839,14 @@ void readRuuvi()
   Logger.Info("Reading Ruuvi");
   esp_task_wdt_reset();
   Logger.Info("Starting RUUVI SCAN");
-  pBLEScan->start(5, false);
-  pBLEScan->clearResults();
+  // NimBLEScanResults foundDevices = pBLEScan->getResults(10*1000, false, true);
+  // Serial.print("Devices found: ");
+  // Serial.println(foundDevices.getCount());
+  // Serial.println("Scan done!");
+  // pBLEScan->clearResults();
+
+  pBLEScan->start(15*1000, false, true); 
+
   esp_task_wdt_reset();
   Logger.Info("RUUVI SCAN DONE");
   Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());  
@@ -923,7 +930,7 @@ void loop() {
       if (loopCount == 20 && !hasSentMessage)
       {
         initRuuvi();
-      } else if (measureCount != lastRuuviMeasureCount && measureCount > 0 && measureCount % 30 == 0)
+      } else if (measureCount != lastRuuviMeasureCount && measureCount > 0 && measureCount % 20 == 0)
       {
         readRuuvi();
         lastRuuviMeasureCount = measureCount;

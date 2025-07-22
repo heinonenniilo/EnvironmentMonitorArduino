@@ -27,10 +27,15 @@ void RuuviTagScanner::begin()
 
 void RuuviTagScanner::onResult(const NimBLEAdvertisedDevice* advertisedDevice)
 {
+  if (!advertisedDevice->haveManufacturerData())
+  {
+    return;
+  }
   std::string manufacturerData = advertisedDevice->getManufacturerData();
   if (manufacturerData.length() >= 24) {
     const uint8_t* data = (const uint8_t*)manufacturerData.c_str();
-
+    Serial.println("MAN DATA FOUND");
+    Serial.println(manufacturerData.c_str());
     if (data[0] == 0x99 && data[1] == 0x04 && data[2] == 0x05) {
       std::string mac = advertisedDevice->getAddress().toString();
       if (mac != allowedMac) 
@@ -51,7 +56,6 @@ void RuuviTagScanner::onResult(const NimBLEAdvertisedDevice* advertisedDevice)
       temperatureTotal += temp;
       pressureTotal += pressure;
       measureCount++; 
-
       Serial.println("RuuviTag:");
       Serial.println(mac.c_str());
       Serial.printf("Temp: %.2f °C\n", temp);
