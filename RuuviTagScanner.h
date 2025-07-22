@@ -27,9 +27,3 @@ class RuuviTagScanner : public BLEAdvertisedDeviceCallbacks, public Sensor {
 };
 
 #endif
-
-
-/*
-
-virtual float readPressure(bool average) {return ERROR_UNSUPPORTED;};
-*/
