@@ -44,8 +44,8 @@
 #endif
 // RUUVI
 #ifdef RUUVI_MAC
-  #include <BLEDevice.h>
-  #include <BLEScan.h>
+  #include <NimBLEDevice.h>
+  #include <NimBLEAdvertisedDevice.h>
   #include "RuuviTagScanner.h"
 #endif
 

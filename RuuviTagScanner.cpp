@@ -1,5 +1,6 @@
 #include "RuuviTagScanner.h"
-#include <BLEDevice.h>
+#include <NimBLEDevice.h>
+#include <string>
 
 static float parseTemperature(const uint8_t* data) {
   int16_t raw = (data[3] << 8) | data[4];
@@ -24,19 +25,18 @@ void RuuviTagScanner::begin()
   Logger.Info("Ruuvi scanner initing");
 }
 
-void RuuviTagScanner::onResult(BLEAdvertisedDevice advertisedDevice) 
+void RuuviTagScanner::onResult(const NimBLEAdvertisedDevice* advertisedDevice)
 {
-  String manufacturerData = advertisedDevice.getManufacturerData();
-  Serial.println(manufacturerData);
+  std::string manufacturerData = advertisedDevice->getManufacturerData();
   if (manufacturerData.length() >= 24) {
     const uint8_t* data = (const uint8_t*)manufacturerData.c_str();
 
     if (data[0] == 0x99 && data[1] == 0x04 && data[2] == 0x05) {
-      String mac = advertisedDevice.getAddress().toString();
+      std::string mac = advertisedDevice->getAddress().toString();
       if (mac != allowedMac) 
       {
         Serial.println("MAC: ");
-        Serial.println(mac);
+        Serial.println(mac.c_str());
         Serial.println("Not allowed");
         return;
       }      
@@ -53,7 +53,7 @@ void RuuviTagScanner::onResult(BLEAdvertisedDevice advertisedDevice)
       measureCount++; 
 
       Serial.println("RuuviTag:");
-      Serial.println("MAC: " + mac);
+      Serial.println(mac.c_str());
       Serial.printf("Temp: %.2f °C\n", temp);
       Serial.printf("Humidity: %.2f %%\n", hum);
       Serial.printf("Pressure: %.2f hPa\n", pressure);

@@ -2,13 +2,13 @@
 #define RUUVI_H
 
 
-#include <BLEAdvertisedDevice.h>
+#include <NimBLEAdvertisedDevice.h>
 #include <Arduino.h>
 #include "Sensor.h"
 
-class RuuviTagScanner : public BLEAdvertisedDeviceCallbacks, public Sensor {
+class RuuviTagScanner : public NimBLEScanCallbacks, public Sensor {
   private:
-    String allowedMac;
+    std::string allowedMac;
     float temperatureTotal = 0.0;
     float humidityTotal = 0.0;
     float pressureTotal = 0.0;
@@ -17,8 +17,8 @@ class RuuviTagScanner : public BLEAdvertisedDeviceCallbacks, public Sensor {
     float lastPressure = Sensor::ERROR_FAILED_READING;
     int measureCount = 0;    
   public:
-    RuuviTagScanner(const String& macToAllow, int sensorId) : allowedMac(macToAllow), Sensor(sensorId) {}
-    void onResult(BLEAdvertisedDevice advertisedDevice) override;
+    RuuviTagScanner(const std::string& macToAllow, int sensorId) : allowedMac(macToAllow), Sensor(sensorId) {}
+    void onResult(const NimBLEAdvertisedDevice* advertisedDevice) override;
     void begin() override;
     float readTemperature(bool average) override;
     float readHumidity(bool average) override;
