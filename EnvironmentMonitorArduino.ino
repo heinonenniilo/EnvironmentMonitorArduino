@@ -12,7 +12,7 @@
 #include <Adafruit_GFX.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
-// #define USE_DISPLAY 1 // Uncomment in order not to use display
+#define USE_DISPLAY 1 // Uncomment in order not to use display
 #define SH1106 1 // Uncomment to use SSD1306
 // #define SSD1306
 
@@ -33,8 +33,8 @@
 #endif
 
 // Definitions
-#define CP2102 1
-// #define ESPDUINO 1
+// #define CP2102 1
+#define ESPDUINO 1
 #define DEBUG 0
 // PINS
 #ifdef CP2102
@@ -836,17 +836,9 @@ void initRuuvi()
 
 void readRuuvi()
 {
-  Logger.Info("Reading Ruuvi");
   esp_task_wdt_reset();
   Logger.Info("Starting RUUVI SCAN");
-  // NimBLEScanResults foundDevices = pBLEScan->getResults(10*1000, false, true);
-  // Serial.print("Devices found: ");
-  // Serial.println(foundDevices.getCount());
-  // Serial.println("Scan done!");
-  // pBLEScan->clearResults();
-
   pBLEScan->start(15*1000, false, true); 
-
   esp_task_wdt_reset();
   Logger.Info("RUUVI SCAN DONE");
   Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());  
@@ -951,16 +943,6 @@ void loop() {
   #ifdef MOTIONSENSOR_IN_PINS
     motionSensor->checkOutputs();
   #endif
- 
-  // RUUVI START
-  /*
-  Logger.Info("Starting RUUVI SCAN");
-  pBLEScan->start(5, false);
-  pBLEScan->clearResults();
-  Logger.Info("RUUVI SCAN DONE");
-  Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());
-  */
-  // RUUVIG END
   esp_task_wdt_reset();
   delay(LOOP_WAIT);
 }
