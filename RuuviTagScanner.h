@@ -9,7 +9,6 @@
 class RuuviTagScanner : public NimBLEScanCallbacks {
   private:
     std::vector<RuuviTagSensor*> sensors;
-    int measureCount = 0;    
   public:
     RuuviTagScanner(const std::vector<RuuviTagSensor*>& registeredSensors);
     void onResult(const NimBLEAdvertisedDevice* advertisedDevice) override;
