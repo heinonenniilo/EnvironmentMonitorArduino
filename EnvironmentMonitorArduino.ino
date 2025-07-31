@@ -820,29 +820,29 @@ void setup()
 }
 
 #ifdef RUUVI_MAC
-void initRuuvi()
-{
-  Logger.Info("Free heap (before init) (bytes): " + String(ESP.getFreeHeap()));
-  esp_task_wdt_reset();
-  NimBLEDevice::init("ESP32-Ruuvi");
-  pBLEScan = BLEDevice::getScan();
-  pBLEScan->setScanCallbacks(scanner, false);
-  pBLEScan->setActiveScan(false);
-  pBLEScan->setMaxResults(0); // Using just the callback
-  pBLEScan->setInterval(100);
-  pBLEScan->setWindow(100);
-  Logger.Info("Free heap (after init) (bytes): " + String(ESP.getFreeHeap()));
-}
+  void initRuuvi()
+  {
+    Logger.Info("Free heap (before init) (bytes): " + String(ESP.getFreeHeap()));
+    esp_task_wdt_reset();
+    NimBLEDevice::init("ESP32-Ruuvi");
+    pBLEScan = BLEDevice::getScan();
+    pBLEScan->setScanCallbacks(scanner, false);
+    pBLEScan->setActiveScan(false);
+    pBLEScan->setMaxResults(0); // Using just the callback
+    pBLEScan->setInterval(100);
+    pBLEScan->setWindow(100);
+    Logger.Info("Free heap (after init) (bytes): " + String(ESP.getFreeHeap()));
+  }
 
-void readRuuvi()
-{
-  esp_task_wdt_reset();
-  Logger.Info("Starting RUUVI SCAN");
-  pBLEScan->start(15*1000, false, true); 
-  esp_task_wdt_reset();
-  Logger.Info("RUUVI SCAN DONE");
-  Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());  
-}
+  void readRuuvi()
+  {
+    esp_task_wdt_reset();
+    Logger.Info("Starting RUUVI SCAN");
+    pBLEScan->start(15*1000, false, true); 
+    esp_task_wdt_reset();
+    Logger.Info("RUUVI SCAN DONE");
+    Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());  
+  }
 #endif
 
 void loop() {

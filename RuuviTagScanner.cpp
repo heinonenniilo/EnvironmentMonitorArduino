@@ -2,26 +2,10 @@
 #include <NimBLEDevice.h>
 #include <string>
 
-static float parseTemperature(const uint8_t* data) {
-  int16_t raw = (data[3] << 8) | data[4];
-  return raw * 0.005f;
-}
-
-static float parseHumidity(const uint8_t* data) {
-  uint16_t raw = (data[5] << 8) | data[6];
-  return raw * 0.0025f;
-}
-
-static float parsePressure(const uint8_t* data) {
-  uint16_t raw = (data[7] << 8) | data[8];
-  return (raw + 50000) / 100.0f;  // Convert to hPa
-}
-
-
+RuuviTagScanner::RuuviTagScanner(const std::string& macToAllow, int sensorId) : allowedMac(macToAllow), Sensor(sensorId) {}
 
 void RuuviTagScanner::begin() 
 {
-  //
   Logger.Info("Ruuvi scanner initing");
 }
 

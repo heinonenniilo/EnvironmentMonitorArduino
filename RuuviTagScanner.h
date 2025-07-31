@@ -1,7 +1,6 @@
 #ifndef RUUVI_H
 #define RUUVI_H
 
-
 #include <NimBLEAdvertisedDevice.h>
 #include <Arduino.h>
 #include "Sensor.h"
@@ -17,7 +16,7 @@ class RuuviTagScanner : public NimBLEScanCallbacks, public Sensor {
     float lastPressure = Sensor::ERROR_FAILED_READING;
     int measureCount = 0;    
   public:
-    RuuviTagScanner(const std::string& macToAllow, int sensorId) : allowedMac(macToAllow), Sensor(sensorId) {}
+    RuuviTagScanner(const std::string& macToAllow, int sensorId);
     void onResult(const NimBLEAdvertisedDevice* advertisedDevice) override;
     void begin() override;
     float readTemperature(bool average) override;
