@@ -19,3 +19,6 @@
 #define MOTIONSENSOR_SENSORID 3 //    
 #define MOTIONSENSOR_MULTI_TRIGGER_MODE 1  
 #define MOTIONSENSOR_DISPLAY_ON_DELAY 1
+
+// #define RUUVI_MAC "xx:xx:xx:xx:xx:xx"
+// #define RUUVI_SENSORID 5

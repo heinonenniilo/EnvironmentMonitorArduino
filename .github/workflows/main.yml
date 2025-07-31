@@ -33,6 +33,7 @@ jobs:
             - name: BH1750
             - name: Adafruit GFX Library
             - name: OneWire
+            - name: NimBLE-Arduino
           sketch-paths: |
             "."
           enable-deltas-report: true

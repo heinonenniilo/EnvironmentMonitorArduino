@@ -1,31 +1,4 @@
-// Copyright (c) Microsoft Corporation. All rights reserved.
-// SPDX-License-Identifier: MIT
-
-/*
- * This is an Arduino-based Azure IoT Hub sample for ESPRESSIF ESP32 boards.
- * It uses our Azure Embedded SDK for C to help interact with Azure IoT.
- * For reference, please visit https://github.com/azure/azure-sdk-for-c.
- *
- * To connect and work with Azure IoT Hub you need an MQTT client, connecting, subscribing
- * and publishing to specific topics to use the messaging features of the hub.
- * Our azure-sdk-for-c is an MQTT client support library, helping composing and parsing the
- * MQTT topic names and messages exchanged with the Azure IoT Hub.
- *
- * This sample performs the following tasks:
- * - Synchronize the device clock with a NTP server;
- * - Initialize our "az_iot_hub_client" (struct for data, part of our azure-sdk-for-c);
- * - Initialize the MQTT client (here we use ESPRESSIF's esp_mqtt_client, which also handle the tcp
- * connection and TLS);
- * - Connect the MQTT client (using server-certificate validation, SAS-tokens for client
- * authentication);
- * - Periodically send telemetry data to the Azure IoT Hub.
- *
- * To properly connect to your Azure IoT Hub, please fill the information in the `iot_configs.h`
- * file.
- */
-
 // Sensors
-#include <DHT.h>
 #include <ArduinoJson.h>
 #include <vector>
 // Sensors implementations
@@ -34,7 +7,6 @@
 #include "DS18B20Sensor.h"
 #include "BH1750FVISensor.h"
 #include "MotionSensor.h"
-
 // Display
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -61,15 +33,22 @@
 #endif
 
 // Definitions
-#define CP2102 1
-// #define ESPDUINO 1
+// #define CP2102 1
+#define ESPDUINO 1
 #define DEBUG 0
-
+// PINS
 #ifdef CP2102
   #include "configs/pins_CP2102.h"
 #else
   #include "configs/pins_ESPDUINO.h"
 #endif
+// RUUVI
+#ifdef RUUVI_MAC
+  #include <NimBLEDevice.h>
+  #include <NimBLEAdvertisedDevice.h>
+  #include "RuuviTagScanner.h"
+#endif
+
 
 #include "configs/iot_configs.h" // Place DeviceId / IOT HUB settings + WIFI settings in this file
 // Commands from IOT HUB
@@ -131,7 +110,8 @@ enum class MeasurementTypes : int {
   Temperature = 1,
   Humidity = 2,
   Light = 3,
-  Motion = 4
+  Motion = 4,
+  Pressure = 5
 };
 
 // Translate iot_configs.h defines into variables used by the sample
@@ -146,8 +126,8 @@ static const int mqtt_port = AZ_IOT_DEFAULT_MQTT_CONNECT_PORT;
 static esp_mqtt_client_handle_t mqtt_client;
 static az_iot_hub_client client;
 
-static char mqtt_client_id[512]; // Changed
-static char mqtt_username[512];  // Changed
+static char mqtt_client_id[256]; // Changed
+static char mqtt_username[256];  // Changed
 static char mqtt_password[200];
 static uint8_t sas_signature_buffer[256];
 static char telemetry_topic[128];
@@ -159,16 +139,21 @@ int successCount = 0;
 unsigned int sentMessageCount = 0;
 int inited = 0;
 int measureCount = 0;
+int lastRuuviMeasureCount = 0;
 bool hasSentMessage = false;
 static unsigned long loopCount = 0;
 static unsigned long lastLoopCount = 0;
 int lastMotionStatus = 0;
-unsigned long motionControlDelaysMs = MOTION_DETECTION_SHUTDOWN_DELAY_MS;
 
 MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
 std::vector<Sensor*> sensors;
 MotionSensor* motionSensor;
+
+#ifdef RUUVI_MAC
+  BLEScan* pBLEScan; // RUUVI
+  RuuviTagScanner* scanner = new RuuviTagScanner(RUUVI_MAC, RUUVI_SENSORID);
+#endif
 
 #define INCOMING_DATA_BUFFER_SIZE 512
 static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
@@ -606,6 +591,7 @@ static int generateTelemetryPayload()
     float humi = sensor->readHumidity(true); 
     float tempC = sensor->readTemperature(true);
     float lightV = sensor->readLight(true);
+    float pressureV = sensor->readPressure(true);
     int motionV = sensor->readMotion(true);
     if (tempC != Sensor::ERROR_UNSUPPORTED && tempC != Sensor::ERROR_FAILED_READING) 
     {
@@ -632,6 +618,15 @@ static int generateTelemetryPayload()
       jsonMeasureCount++;
     }
 
+    if (pressureV != Sensor::ERROR_UNSUPPORTED && pressureV != Sensor::ERROR_FAILED_READING) 
+    {
+      Logger.Info("Pressure average: " + String(pressureV));
+      doc["measurements"][jsonMeasureCount]["SensorId"] = sensorId;
+      doc["measurements"][jsonMeasureCount]["SensorValue"] = pressureV;
+      doc["measurements"][jsonMeasureCount]["TypeId"]= (int)MeasurementTypes::Pressure;
+      jsonMeasureCount++;
+    }
+
     if (motionV >= 0) 
     {
       Logger.Info("Motion detected: " + String(motionV));
@@ -640,10 +635,10 @@ static int generateTelemetryPayload()
       doc["measurements"][jsonMeasureCount]["TypeId"]= (int)MeasurementTypes::Motion;      
       jsonMeasureCount++;
     }
-
   }
   serializeJson(doc, telemetry_payload);
   measureCount = 0;
+  lastRuuviMeasureCount = 0;
   Logger.Info("--IOT HUB message generated--");
   return 1;
 }
@@ -770,15 +765,19 @@ void setup()
     sensors.push_back(new BH1750FVISensor(BH1750FVI_SENSORID));
   #endif
 
+  #ifdef RUUVI_MAC
+    sensors.push_back(scanner);
+  #endif
+
   #ifdef MOTIONSENSOR_IN_PINS
     motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS, MOTIONSENSOR_MULTI_TRIGGER_MODE);
     sensors.push_back(motionSensor);
-  #endif 
+  #endif  
 
   for (Sensor* sensor : sensors)
   {
-        Logger.Info("Call begin for SensorId: " + String(sensor->getSensorId()));
-        sensor->begin();
+    Logger.Info("Call begin for SensorId: " + String(sensor->getSensorId()));
+    sensor->begin();
   }  
   // Delay stuff
   esp_task_wdt_deinit(); //wdt is enabled by default, so we need to deinit it first
@@ -815,8 +814,36 @@ void setup()
     delay(2000);     
   #endif
   Logger.Info("Establish connection");
+  Serial.printf("Free heap (setup): %u bytes\n", ESP.getFreeHeap());
   establishConnection();
+  Serial.printf("Free heap (after connection): %u bytes\n", ESP.getFreeHeap());
 }
+
+#ifdef RUUVI_MAC
+  void initRuuvi()
+  {
+    Logger.Info("Free heap (before init) (bytes): " + String(ESP.getFreeHeap()));
+    esp_task_wdt_reset();
+    NimBLEDevice::init("ESP32-Ruuvi");
+    pBLEScan = BLEDevice::getScan();
+    pBLEScan->setScanCallbacks(scanner, false);
+    pBLEScan->setActiveScan(false);
+    pBLEScan->setMaxResults(0); // Using just the callback
+    pBLEScan->setInterval(100);
+    pBLEScan->setWindow(100);
+    Logger.Info("Free heap (after init) (bytes): " + String(ESP.getFreeHeap()));
+  }
+
+  void readRuuvi()
+  {
+    esp_task_wdt_reset();
+    Logger.Info("Starting RUUVI SCAN");
+    pBLEScan->start(15*1000, false, true); 
+    esp_task_wdt_reset();
+    Logger.Info("RUUVI SCAN DONE");
+    Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());  
+  }
+#endif
 
 void loop() {
   if (WiFi.status() != WL_CONNECTED) 
@@ -841,7 +868,7 @@ void loop() {
   else if (communicationErrorCount > 0) 
   {
     setStatus(0);
-    if (communicationErrorCount > 5) 
+    if (communicationErrorCount > 12) 
     {
       Logger.Info("Trying to restart due to communication errors");
       delay(5000);
@@ -886,6 +913,21 @@ void loop() {
         successCount = 0;
       }
     }
+
+    if (DEBUG) 
+    {
+      Logger.Info("Loop count: " + String(loopCount));
+    }
+    #ifdef RUUVI_MAC
+      if (loopCount == 20 && !hasSentMessage)
+      {
+        initRuuvi();
+      } else if (measureCount != lastRuuviMeasureCount && measureCount > 0 && measureCount % 20 == 0)
+      {
+        readRuuvi();
+        lastRuuviMeasureCount = measureCount;
+      }
+    #endif
   } else {
     if (millis() > 4000) 
     {
