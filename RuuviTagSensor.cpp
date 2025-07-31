@@ -1,25 +1,18 @@
-#include "RuuviTagScanner.h"
+#include "RuuviTagSensor.h"
 #include <NimBLEDevice.h>
 #include <string>
 
-RuuviTagScanner::RuuviTagScanner(const std::vector<RuuviTagSensor*>& registeredSensors) 
+RuuviTagSensor::RuuviTagSensor(const std::string& macToAllow, int sensorId) : allowedMac(macToAllow), Sensor(sensorId) {}
+
+void RuuviTagSensor::begin() 
 {
-    sensors = registeredSensors;
+  Logger.Info("Inited Ruuvi sensor");
 }
 
-void RuuviTagScanner::onResult(const NimBLEAdvertisedDevice* advertisedDevice)
+void RuuviTagSensor::handleMeasurement(const NimBLEAdvertisedDevice* advertisedDevice)
 {
-  if (!advertisedDevice->haveManufacturerData())
-  {
-    return;
-  }
-  for (auto sensor : sensors) {
-    if (sensor != nullptr) {
-      sensor->handleMeasurement(advertisedDevice);
-    }
-  }
+
   std::string manufacturerData = advertisedDevice->getManufacturerData();
-  /*
   if (manufacturerData.length() >= 24) {
     const uint8_t* data = (const uint8_t*)manufacturerData.c_str();
     Serial.println("MAN DATA FOUND");
@@ -52,7 +45,53 @@ void RuuviTagScanner::onResult(const NimBLEAdvertisedDevice* advertisedDevice)
       Serial.println("--------------------------");
     }
   }
-  */
+}
+
+float RuuviTagSensor::readTemperature(bool average) 
+{
+  if (average)
+  {
+    if (!measureCount) 
+    {
+      return Sensor::ERROR_FAILED_READING;
+    }
+    return temperatureTotal / (float)measureCount;
+  }
+  return lastTemperature;
+}
+
+float RuuviTagSensor::readHumidity(bool average) 
+{
+  if (average)
+  {
+    if (!measureCount) 
+    {
+      return Sensor::ERROR_FAILED_READING;
+    }
+    return humidityTotal / (float)measureCount;
+  }
+  return lastHumidity;
+}
+
+float RuuviTagSensor::readPressure(bool average) 
+{
+  if (average)
+  {
+    if (!measureCount) 
+    {
+      return Sensor::ERROR_FAILED_READING;
+    }
+    return pressureTotal / (float)measureCount;
+  }
+  return lastPressure;
+}
+
+void RuuviTagSensor::resetAverages() 
+{
+    measureCount = 0;
+    temperatureTotal = 0;
+    humidityTotal = 0;
+    pressureTotal = 0;
 }
 
 
