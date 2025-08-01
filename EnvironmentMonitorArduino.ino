@@ -151,8 +151,8 @@ std::vector<Sensor*> sensors;
 MotionSensor* motionSensor;
 
 #ifdef RUUVI_MAC
-  BLEScan* pBLEScan; // RUUVI
-  RuuviTagScanner* scanner;  // = new RuuviTagScanner(RUUVI_MAC, RUUVI_SENSORID);
+  BLEScan* pBLEScan; 
+  RuuviTagScanner* scanner; 
   std::vector<RuuviTagSensor*> ruuviSensors;
 #endif
 
@@ -765,10 +765,6 @@ void setup()
   #ifdef BH1750FVI_SENSORID
     sensors.push_back(new BH1750FVISensor(BH1750FVI_SENSORID));
   #endif
-
-  // #ifdef RUUVI_MAC
-  //  sensors.push_back(scanner);
-  // #endif
 
   #ifdef MOTIONSENSOR_IN_PINS
     motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS, MOTIONSENSOR_MULTI_TRIGGER_MODE);
