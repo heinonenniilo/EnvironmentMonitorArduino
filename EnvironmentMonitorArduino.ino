@@ -33,8 +33,8 @@
 #endif
 
 // Definitions
-// #define CP2102 1
-#define ESPDUINO 1
+#define CP2102 1
+// #define ESPDUINO 1
 #define DEBUG 0
 // PINS
 #ifdef CP2102
@@ -43,6 +43,8 @@
   #include "configs/pins_ESPDUINO.h"
 #endif
 // RUUVI
+
+#define RUUVI_SCAN_TIME 25000 // RUUVI SCAN TIME IN MS
 #ifdef RUUVI_MAC
   #include <NimBLEDevice.h>
   #include <NimBLEAdvertisedDevice.h>
@@ -847,7 +849,7 @@ void setup()
   {
     esp_task_wdt_reset();
     Logger.Info("Starting RUUVI SCAN");
-    pBLEScan->start(15*1000, false, true); 
+    pBLEScan->start(RUUVI_SCAN_TIME, false, true); 
     esp_task_wdt_reset();
     Logger.Info("RUUVI SCAN DONE");
     Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());  
