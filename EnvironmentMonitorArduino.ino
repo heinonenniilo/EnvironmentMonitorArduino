@@ -44,7 +44,7 @@
 #endif
 // RUUVI
 
-#define RUUVI_SCAN_TIME 25000 // RUUVI SCAN TIME IN MS
+#define RUUVI_SCAN_TIME 22000 // RUUVI SCAN TIME IN MS
 #ifdef RUUVI_MAC
   #include <NimBLEDevice.h>
   #include <NimBLEAdvertisedDevice.h>
