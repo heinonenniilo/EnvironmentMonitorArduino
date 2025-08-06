@@ -27,3 +27,6 @@
 
 // #define RUUVI_MAC "xx:xx:xx:xx:xx:xx"
 // #define RUUVI_SENSORID 5
+
+// #define RUUVI_MAC_2 "xx:xx:xx:xx:xx:xx"
+// #define RUUVI_SENSORID_2 5

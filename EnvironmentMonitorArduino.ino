@@ -33,8 +33,8 @@
 #endif
 
 // Definitions
-// #define CP2102 1
-#define ESPDUINO 1
+#define CP2102 1
+// #define ESPDUINO 1
 #define DEBUG 0
 // PINS
 #ifdef CP2102
@@ -43,6 +43,8 @@
   #include "configs/pins_ESPDUINO.h"
 #endif
 // RUUVI
+
+#define RUUVI_SCAN_TIME 20000 // RUUVI SCAN TIME IN MS
 #ifdef RUUVI_MAC
   #include <NimBLEDevice.h>
   #include <NimBLEAdvertisedDevice.h>
@@ -151,8 +153,9 @@ std::vector<Sensor*> sensors;
 MotionSensor* motionSensor;
 
 #ifdef RUUVI_MAC
-  BLEScan* pBLEScan; // RUUVI
-  RuuviTagScanner* scanner = new RuuviTagScanner(RUUVI_MAC, RUUVI_SENSORID);
+  BLEScan* pBLEScan; 
+  RuuviTagScanner* scanner; 
+  std::vector<RuuviTagSensor*> ruuviSensors;
 #endif
 
 #define INCOMING_DATA_BUFFER_SIZE 512
@@ -765,14 +768,22 @@ void setup()
     sensors.push_back(new BH1750FVISensor(BH1750FVI_SENSORID));
   #endif
 
-  #ifdef RUUVI_MAC
-    sensors.push_back(scanner);
-  #endif
-
   #ifdef MOTIONSENSOR_IN_PINS
     motionSensor = new MotionSensor(MOTIONSENSOR_SENSORID, MOTIONSENSOR_IN_PINS, MOTIONSENSOR_OUT_PINS, MOTIONSENSOR_MULTI_TRIGGER_MODE);
     sensors.push_back(motionSensor);
-  #endif  
+  #endif 
+
+  #ifdef RUUVI_MAC
+    RuuviTagSensor* ruuviSensor = new RuuviTagSensor(RUUVI_MAC, RUUVI_SENSORID);
+    ruuviSensors.push_back(ruuviSensor);
+    sensors.push_back(ruuviSensor);
+    #ifdef RUUVI_MAC_2
+      RuuviTagSensor* ruuviSensor2 = new RuuviTagSensor(RUUVI_MAC_2, RUUVI_SENSORID_2);
+      ruuviSensors.push_back(ruuviSensor2);
+      sensors.push_back(ruuviSensor2);
+    #endif
+    scanner = new RuuviTagScanner(ruuviSensors);
+  #endif 
 
   for (Sensor* sensor : sensors)
   {
@@ -838,7 +849,7 @@ void setup()
   {
     esp_task_wdt_reset();
     Logger.Info("Starting RUUVI SCAN");
-    pBLEScan->start(15*1000, false, true); 
+    pBLEScan->start(RUUVI_SCAN_TIME, false, true); 
     esp_task_wdt_reset();
     Logger.Info("RUUVI SCAN DONE");
     Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());  

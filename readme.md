@@ -22,6 +22,7 @@ Required libraries:
 - Adafruit_SH110X
 - Adafruit_SSD1306
 - BH1750
+- [NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino)
 
 Required boards:
 - ESP32 board support should be added to Arduino IDE. Minor changes likely needed if run with Arduino hardware.
