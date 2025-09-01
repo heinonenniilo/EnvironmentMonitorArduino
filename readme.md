@@ -38,6 +38,7 @@ Supported sensors:
 - BH1750
 - HC-SR501
   - Or any digital motion sensor.
+- RuuviTag
 
 Based on:
 - https://github.com/Azure/azure-sdk-for-c-arduino
