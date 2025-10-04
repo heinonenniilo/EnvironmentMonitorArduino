@@ -57,8 +57,8 @@
 #define CMD_REBOOT "REBOOT"
 // Loop definitions
 // MEASURE_LOOP_COUNT * MEASURE_LIMIT*LOOP_WAIT = Send Interval in ms
-#define LOOP_WAIT 500 // 500
-#define MEASURE_LOOP_COUNT  8
+#define LOOP_WAIT 100
+#define MEASURE_LOOP_COUNT  40 
 // Message settings
 #define SUCCESS_LIMIT 3
 #define MEASURE_LIMIT 75 
