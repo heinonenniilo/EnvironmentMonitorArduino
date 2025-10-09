@@ -1,5 +1,7 @@
 #include "RuuviTagSensor.h"
 #include <NimBLEDevice.h>
+#include <algorithm>
+#include <cctype>
 #include <string>
 
 RuuviTagSensor::RuuviTagSensor(const std::string& macToAllow, int sensorId) : allowedMac(macToAllow), Sensor(sensorId) {}
@@ -19,7 +21,12 @@ void RuuviTagSensor::handleMeasurement(const NimBLEAdvertisedDevice* advertisedD
     Serial.println(manufacturerData.c_str());
     if (data[0] == 0x99 && data[1] == 0x04 && data[2] == 0x05) {
       std::string mac = advertisedDevice->getAddress().toString();
-      if (mac != allowedMac) 
+
+      std::string macLower = mac;
+      std::string allowedLower = allowedMac;
+      std::transform(macLower.begin(), macLower.end(), macLower.begin(), [](unsigned char c){ return std::tolower(c); });
+      std::transform(allowedLower.begin(), allowedLower.end(), allowedLower.begin(), [](unsigned char c){ return std::tolower(c); });      
+      if (macLower != allowedLower) 
       {
         Serial.println("MAC: ");
         Serial.println(mac.c_str());
