@@ -8,7 +8,7 @@ RuuviTagSensor::RuuviTagSensor(const std::string& macToAllow, int sensorId) : al
 
 void RuuviTagSensor::begin() 
 {
-  Logger.Info("Inited Ruuvi sensor");
+  Logger.Info("Inited Ruuvi sensor. SensorId: " + String(sensorId) + ". Allowed MAC: " + String(allowedMac.c_str()));
 }
 
 void RuuviTagSensor::handleMeasurement(const NimBLEAdvertisedDevice* advertisedDevice)
