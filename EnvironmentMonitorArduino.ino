@@ -59,6 +59,7 @@
 // MEASURE_LOOP_COUNT * MEASURE_LIMIT*LOOP_WAIT = Send Interval in ms
 #define LOOP_WAIT 100
 #define MEASURE_LOOP_COUNT  40 
+#define FIRST_MESSAGE_MILLIS 5000
 // Message settings
 #define SUCCESS_LIMIT 3
 #define MEASURE_LIMIT 75 
@@ -571,7 +572,7 @@ int calculateMeasurements()
   return succeededReadings;
 }
 
-static int generateTelemetryPayload() 
+static int generateTelemetryPayload(bool sendEmpty = false) 
 {
   Logger.Info("--Generating IOT hub message--");
   Logger.Info("MeasureCount: " + String(measureCount));
@@ -586,6 +587,14 @@ static int generateTelemetryPayload()
   doc["messageCount"] = sentMessageCount;
   doc["loopCount"] = loopCount;
   doc["uptime"] = millisNow;
+
+  if (sendEmpty)
+  {
+    serializeJson(doc, telemetry_payload);
+    Logger.Info("--IOT HUB message generated--");
+    return 1;    
+  }
+
   int jsonMeasureCount = 0;
   for (Sensor* sensor : sensors) 
   {
@@ -646,7 +655,7 @@ static int generateTelemetryPayload()
   return 1;
 }
 
-static int sendTelemetry() {
+static int sendTelemetry(bool sendEmpty = false) {
   Logger.Info("Sending telemetry ...");   
 
   // The topic could be obtained just once during setup,
@@ -658,7 +667,7 @@ static int sendTelemetry() {
     return 0;
   }
 
-  if(!generateTelemetryPayload()) 
+  if(!generateTelemetryPayload(sendEmpty)) 
   {
     Logger.Error("Failed to get sensor data");
     return 0;
@@ -913,6 +922,15 @@ void loop() {
   if (inited) 
   {
     loopCount++;
+    if (!hasSentMessage && millis() > FIRST_MESSAGE_MILLIS)
+    {
+      Logger.Info("Sending empty first message");
+      if (sendTelemetry(true))
+      {
+        Logger.Info("Empty first message sent");
+        hasSentMessage = true;
+      }
+    }
     // loopCount < lastLoopCount = ovelap
     if (loopCount < lastLoopCount ||  loopCount - lastLoopCount >= MEASURE_LOOP_COUNT) 
     {
