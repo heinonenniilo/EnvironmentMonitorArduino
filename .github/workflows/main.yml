@@ -15,6 +15,9 @@ jobs:
       - name: Move iot_configs.h to configs folder
         run: |
           mv ./iot_configs.h ./configs/iot_configs.h
+      - name: Rename pins_CP2102.h as pins.h
+        run: |
+          mv ./configs/pins_CP2102.h ./configs/pins.h
       - uses: arduino/compile-sketches@v1
         name: "Build Arduino solution"
         with:
