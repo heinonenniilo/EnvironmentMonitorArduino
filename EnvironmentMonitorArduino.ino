@@ -12,11 +12,9 @@
 #include <Adafruit_GFX.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define USE_DISPLAY 1 // Uncomment in order not to use display
-#define SH1106 1 // Uncomment to use SSD1306
-// #define SSD1306
-
 #define DISPLAY_TEXT_SIZE 1
+
+#include "configs/pins.h"
 
 #ifdef USE_DISPLAY
   #ifdef SH1106
@@ -32,16 +30,7 @@
   #endif
 #endif
 
-// Definitions
-#define CP2102 1
-// #define ESPDUINO 1
 #define DEBUG 0
-// PINS
-#ifdef CP2102
-  #include "configs/pins_CP2102.h"
-#else
-  #include "configs/pins_ESPDUINO.h"
-#endif
 // RUUVI
 
 #define RUUVI_SCAN_TIME 20000 // RUUVI SCAN TIME IN MS
