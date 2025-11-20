@@ -1,4 +1,4 @@
-// CP2102 PINS
+// CP2102 PINS EXAMPLE
 #define REDLEDPIN 27
 #define GREENLEDPIN 26
 #define YELLOWLEDPIN 33
@@ -25,3 +25,8 @@
 
 // #define RUUVI_MAC_2 "xx:xx:xx:xx:xx:xx"
 // #define RUUVI_SENSORID_2 5
+
+// Screen definitions
+#define USE_DISPLAY 1 // Uncomment in order not to use display
+#define SH1106 1 // Uncomment to use SSD1306
+// #define SSD1306
