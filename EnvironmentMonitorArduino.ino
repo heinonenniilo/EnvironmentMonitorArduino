@@ -133,6 +133,7 @@ int inited = 0;
 int measureCount = 0;
 int lastRuuviMeasureCount = 0;
 bool hasSentMessage = false;
+bool hasInitedRuuvi = false;
 static unsigned long loopCount = 0;
 static unsigned long lastLoopCount = 0;
 int lastMotionStatus = 0;
@@ -937,9 +938,10 @@ void loop() {
       Logger.Info("Loop count: " + String(loopCount));
     }
     #ifdef RUUVI_MAC
-      if (loopCount == 20)
+      if (loopCount == 20 && !hasInitedRuuvi)
       {
         initRuuvi();
+        hasInitedRuuvi = true;
       } else if (measureCount != lastRuuviMeasureCount && measureCount > 0 && measureCount % 20 == 0)
       {
         readRuuvi();
