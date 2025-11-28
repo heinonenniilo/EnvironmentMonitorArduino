@@ -937,7 +937,7 @@ void loop() {
       Logger.Info("Loop count: " + String(loopCount));
     }
     #ifdef RUUVI_MAC
-      if (loopCount == 20 && !hasSentMessage)
+      if (loopCount == 20)
       {
         initRuuvi();
       } else if (measureCount != lastRuuviMeasureCount && measureCount > 0 && measureCount % 20 == 0)
