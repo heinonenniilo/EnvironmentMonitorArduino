@@ -51,7 +51,13 @@
 #define FIRST_MESSAGE_MILLIS 5000
 // Message settings
 #define SUCCESS_LIMIT 3
-#define MEASURE_LIMIT 20 
+
+#ifdef USE_IOT_HUB
+  #define MEASURE_LIMIT 75
+#else
+  #define MEASURE_LIMIT 30
+#endif
+
 #define MEASURE_START_LOOP_LIMIT 6
 #define MOTION_DETECTION_SHUTDOWN_DELAY_MS 45000 // Set to 0 if controlled by sensor
 
