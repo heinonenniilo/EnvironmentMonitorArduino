@@ -56,7 +56,7 @@
   #define MEASURE_LIMIT 75
   #define COMMUNICATION_ERROR_LIMIT 12
 #else
-  #define MEASURE_LIMIT 20
+  #define MEASURE_LIMIT 30
   #define COMMUNICATION_ERROR_LIMIT 5 // Causes boot in case sending measurements fails five times in a row
 #endif
 
