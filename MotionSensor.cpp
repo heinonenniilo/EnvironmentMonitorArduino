@@ -106,8 +106,15 @@ float MotionSensor::getOutputDelayLeft()
 }
 
 // Set status
-void MotionSensor::setMotionControlStatus(MotionControlStatus status) 
+bool MotionSensor::setMotionControlStatus(MotionControlStatus status) 
 {
+
+  if (status == motionControlStatus)
+  {
+    debugPrint("setMotionControlStatus - Returning. Status not changed"); 
+    return 0;
+  }
+
   motionControlStatus = status;
   lastMotionOnMillis = 0;
   lastMotionStatus = 0;
@@ -119,11 +126,19 @@ void MotionSensor::setMotionControlStatus(MotionControlStatus status)
   {
     setOutputs(0);
   }
+  return 1;
 }
 // Set delay in ms
-void MotionSensor::setMotionControlDelay(unsigned long delayInMs)
+bool MotionSensor::setMotionControlDelay(unsigned long delayInMs)
 {
   debugPrint("Setting motion control delay. Given value: " + String(delayInMs));
+
+  if (delayInMs == motionControlDelaysMs)
+  {
+    debugPrint("Delay in ms not changed. Returning");
+    return 0;
+  }
+
   unsigned long valueToSet = delayInMs;
   if (delayInMs < OUTPUT_MIN_DELAY_MS) 
   {
@@ -134,7 +149,8 @@ void MotionSensor::setMotionControlDelay(unsigned long delayInMs)
   } 
 
   debugPrint("Setting motion control delay to: " + String(valueToSet));
-  motionControlDelaysMs = delayInMs;
+  motionControlDelaysMs = valueToSet;
+  return 1;
 }
 
 void MotionSensor::resetAverages() 

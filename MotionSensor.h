@@ -40,8 +40,8 @@ public:
     float getOutputDelayLeft();
 
     void checkOutputs(); 
-    void setMotionControlStatus(MotionControlStatus status);
-    void setMotionControlDelay(unsigned long delayInMs);
+    bool setMotionControlStatus(MotionControlStatus status); // Returns true if changed
+    bool setMotionControlDelay(unsigned long delayInMs); // retursn true if changed
 };
 
 #endif
