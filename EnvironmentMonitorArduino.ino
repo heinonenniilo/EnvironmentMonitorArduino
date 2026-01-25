@@ -772,6 +772,7 @@ static int sendTelemetry(bool sendEmpty = false) {
       communicationErrorCount = 0;
     } else 
     {
+      setStatus(0);
       communicationErrorCount++;  
       printCommunicationError();
     }
@@ -838,16 +839,11 @@ esp_task_wdt_config_t twdt_config = {
 
 static void rebootDevice()
 {
-  Logger.Info("Trying to restart due to communication errors");
-
-  Logger.Error("COMMUNICATION ERROR");
-  Logger.Error("Count: " + String(communicationErrorCount));
   Logger.Error("REBOOTING");
-
   bool hasCommunicationErrors = communicationErrorCount > COMMUNICATION_ERROR_LIMIT;
-
   if (hasCommunicationErrors) 
   {
+    Logger.Info("Trying to restart due to communication errors");
     Logger.Error("Communication errors: " + String(communicationErrorCount));
   }
 
@@ -864,7 +860,6 @@ static void rebootDevice()
 
     display.display();
   #endif
-
   delay(5000);
   ESP.restart();
 }
@@ -1026,14 +1021,11 @@ void loop() {
       Logger.Info("SAS token refreshed");
     }
   #endif
-  else if (communicationErrorCount > 0) 
+  else if (communicationErrorCount > COMMUNICATION_ERROR_LIMIT) 
   {
     setStatus(0);
-    if (communicationErrorCount > COMMUNICATION_ERROR_LIMIT) 
-    {
-      Logger.Info("Trying to restart due to communication errors");
-      rebootDevice();
-    }
+    Logger.Info("Trying to restart due to communication errors");
+    rebootDevice();
   }
   else if (measureCount > MEASURE_LIMIT) 
   { 
@@ -1069,6 +1061,10 @@ void loop() {
       {
         Logger.Info("Empty first message sent");
         hasSentMessage = true;
+      } else 
+      {
+        // Sending the empty first message failed, wait a while before trying again
+        delay(4000);
       }
     }
     // loopCount < lastLoopCount = ovelap
