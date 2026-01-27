@@ -54,8 +54,10 @@
 
 #ifdef USE_IOT_HUB
   #define MEASURE_LIMIT 75
+  #define COMMUNICATION_ERROR_LIMIT 12
 #else
   #define MEASURE_LIMIT 30
+  #define COMMUNICATION_ERROR_LIMIT 5 // Causes boot in case sending measurements fails five times in a row
 #endif
 
 #define MEASURE_START_LOOP_LIMIT 6
@@ -764,7 +766,17 @@ static int sendTelemetry(bool sendEmpty = false) {
     }  
 
   #else
-    return postTelemetryToApi();
+    int postResult = postTelemetryToApi();
+    if (postResult)
+    {
+      communicationErrorCount = 0;
+    } else 
+    {
+      setStatus(0);
+      communicationErrorCount++;  
+      printCommunicationError();
+    }
+    return postResult;
   #endif
 
 }
@@ -824,6 +836,49 @@ esp_task_wdt_config_t twdt_config = {
         .idle_core_mask = (1 << CONFIG_FREERTOS_NUMBER_OF_CORES) - 1,    // Bitmask of all cores
         .trigger_panic = true,
     };
+
+static void rebootDevice()
+{
+  Logger.Error("REBOOTING");
+  bool hasCommunicationErrors = communicationErrorCount > COMMUNICATION_ERROR_LIMIT;
+  if (hasCommunicationErrors) 
+  {
+    Logger.Info("Trying to restart due to communication errors");
+    Logger.Error("Communication errors: " + String(communicationErrorCount));
+  }
+
+  #ifdef USE_DISPLAY
+    display.clearDisplay();
+    display.setCursor(0, 0);
+    display.println("REBOOTING");
+
+    if (hasCommunicationErrors) 
+    {
+      display.println("COMMUNICATION ERROR");
+      display.println("Count: " + String(communicationErrorCount));
+    }
+
+    display.display();
+  #endif
+  delay(5000);
+  ESP.restart();
+}
+
+static void printCommunicationError()
+{
+  Logger.Error("COMMUNICATION ERROR");
+  Logger.Error("Count: " + String(communicationErrorCount));
+
+  #ifdef USE_DISPLAY
+    display.clearDisplay();
+    display.setCursor(0, 0);
+
+    display.println("COMMUNICATION ERROR");
+    display.println("Count: " + String(communicationErrorCount));
+
+    display.display();
+  #endif
+}
 
 // Arduino setup and loop main functions.
 void setup() 
@@ -961,21 +1016,16 @@ void loop() {
       if (initializeMqttClient() != 0) {
         setStatus(0);
         Logger.Error("Failed to reinit MQTT client. Restarting...");
-        delay(5000);
-        ESP.restart();
+        rebootDevice();
       }
       Logger.Info("SAS token refreshed");
     }
   #endif
-  else if (communicationErrorCount > 0) 
+  else if (communicationErrorCount > COMMUNICATION_ERROR_LIMIT) 
   {
     setStatus(0);
-    if (communicationErrorCount > 12) 
-    {
-      Logger.Info("Trying to restart due to communication errors");
-      delay(5000);
-      ESP.restart();
-    }
+    Logger.Info("Trying to restart due to communication errors");
+    rebootDevice();
   }
   else if (measureCount > MEASURE_LIMIT) 
   { 
@@ -1011,6 +1061,10 @@ void loop() {
       {
         Logger.Info("Empty first message sent");
         hasSentMessage = true;
+      } else 
+      {
+        // Sending the empty first message failed, wait a while before trying again
+        delay(4000);
       }
     }
     // loopCount < lastLoopCount = ovelap
