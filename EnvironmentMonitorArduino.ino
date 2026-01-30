@@ -59,9 +59,7 @@
   #define MEASURE_LIMIT 30
   #define COMMUNICATION_ERROR_LIMIT 5 // Causes boot in case sending measurements fails five times in a row
 #endif
-
 // Polling for attributes
-
 unsigned long lastAttributesReadMillis = 0;
 
 #define MEASURE_START_LOOP_LIMIT 6
@@ -78,8 +76,9 @@ unsigned long lastAttributesReadMillis = 0;
 #include <string.h>
 #include <time.h>
 
-// Libraries for MQTT client and WiFi connection
+// WiFi connection
 #include <WiFi.h>
+// Libraries for MQTT client
 #ifdef USE_IOT_HUB
   #include <mqtt_client.h>
   // Azure IoT SDK for C includes
@@ -1175,7 +1174,6 @@ void loop() {
     if (millis() - lastAttributesReadMillis > ATTRIBUTE_READ_INTERVAL_MS)
     {
       lastAttributesReadMillis = millis();
-
       Logger.Info("Trying to read attributes");
       int newStatus;
       unsigned long newOnDelayMs;
@@ -1203,8 +1201,7 @@ void loop() {
     } else if (indicationStatusSet > 0) 
     {
       // RESET INDICATION STATUS
-      unsigned long diffFromStatusSet = millis() - indicationStatusSet;
-      if (diffFromStatusSet > 5000 )
+      if (millis() - indicationStatusSet > 5000 )
       {
         Logger.Info("Resetting status indicator");
         indicationStatusSet = 0;
@@ -1215,11 +1212,6 @@ void loop() {
       }
     }
 #endif
-
-    if (DEBUG) 
-    {
-      Logger.Info("Loop count: " + String(loopCount));
-    }
     #ifdef RUUVI_MAC
       if (loopCount == 20 && !hasInitedRuuvi)
       {
