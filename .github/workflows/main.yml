@@ -8,7 +8,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-iot-hub:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +19,7 @@ jobs:
         run: |
           mv ./configs/pins_CP2102.h ./configs/pins.h
       - uses: arduino/compile-sketches@v1
-        name: "Build Arduino solution"
+        name: "Build Arduino solution (IoT Hub)"
         with:
           fqbn: "esp32:esp32:esp32"
           platforms: |
@@ -42,13 +42,56 @@ jobs:
           enable-deltas-report: true
           github-token: "${{ secrets.GITHUB_TOKEN }}"
       - uses: actions/upload-artifact@v4
-        name: "Upload sketches report"
+        name: "Upload sketches report (IoT Hub)"
         with:
-          name: sketches-report
+          name: sketches-report-iot-hub
+          path: "sketches-reports"
+
+  build-http-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Move iot_configs.h to configs folder
+        run: |
+          mv ./iot_configs.h ./configs/iot_configs.h
+      - name: Rename pins_CP2102.h as pins.h
+        run: |
+          mv ./configs/pins_CP2102.h ./configs/pins.h
+      - name: Switch to HTTP API mode
+        run: |
+          sed -i 's/^#define USE_IOT_HUB/\/\/#define USE_IOT_HUB/' ./configs/iot_configs.h
+          sed -i 's/^\/\/#define USE_HTTP_API/#define USE_HTTP_API/' ./configs/iot_configs.h
+      - uses: arduino/compile-sketches@v1
+        name: "Build Arduino solution (HTTP API)"
+        with:
+          fqbn: "esp32:esp32:esp32"
+          platforms: |
+            - name: "esp32:esp32"
+              source-url: "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
+          libraries: |
+            - name: ArduinoJSON
+            - name: Azure SDK for C
+            - name: DHT sensor library
+            - name: Adafruit Unified Sensor
+            - name: DallasTemperature
+            - name: Adafruit SH110X
+            - name: Adafruit SSD1306
+            - name: BH1750
+            - name: Adafruit GFX Library
+            - name: OneWire
+            - name: NimBLE-Arduino
+          sketch-paths: |
+            "."
+          enable-deltas-report: true
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+      - uses: actions/upload-artifact@v4
+        name: "Upload sketches report (HTTP API)"
+        with:
+          name: sketches-report-http-api
           path: "sketches-reports"
 
   report:
-    needs: build
+    needs: [build-iot-hub, build-http-api]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
