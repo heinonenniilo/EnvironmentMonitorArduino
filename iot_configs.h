@@ -10,8 +10,9 @@
 #define SECRET_VALUE_HEADER_NAME  ""
 #define API_KEY_HEADER_VALUE      ""     // API KEY
 #define SECRET_ID_HEADER_VALUE    ""     // Secret ID
-#define SECRET_VALUE_HEADER_VALUE "" // Secret VALUE
-#define API_ENDPOINT_URL  ""
+#define SECRET_VALUE_HEADER_VALUE ""     // Secret VALUE
+#define API_ENDPOINT_URL  		  ""
+#define API_ATTRIBUTES_URL		  ""
 
 #define USE_IOT_HUB
 //#define USE_HTTP_API
