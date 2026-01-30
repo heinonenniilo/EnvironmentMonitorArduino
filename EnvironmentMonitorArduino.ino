@@ -1171,7 +1171,7 @@ void loop() {
         successCount = 0;
       }
     }
-
+#ifdef USE_HTTP_API
     if (millis() - lastAttributesReadMillis > ATTRIBUTE_READ_INTERVAL_MS)
     {
       lastAttributesReadMillis = millis();
@@ -1214,6 +1214,7 @@ void loop() {
         }
       }
     }
+#endif
 
     if (DEBUG) 
     {
