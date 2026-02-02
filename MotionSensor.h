@@ -7,6 +7,7 @@
 
 #define OUTPUT_MAX_DELAY_MS 1200000
 #define OUTPUT_MIN_DELAY_MS 10000
+#define MOTION_CONTROL_DEFAULT_DELAY_MS 30000
 
 enum MotionControlStatus {
     AlwaysOff = 0,
@@ -26,7 +27,7 @@ private:
   unsigned long lastMotionOnMillis = 0;
   // Control
   MotionControlStatus motionControlStatus = MotionControl;
-  unsigned long motionControlDelaysMs = 30000;
+  unsigned long motionControlDelaysMs = MOTION_CONTROL_DEFAULT_DELAY_MS;
 
   bool readCurrentMotion();
   void setOutputs(bool mode);
