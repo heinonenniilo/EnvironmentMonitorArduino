@@ -93,6 +93,8 @@ unsigned long lastAttributesReadMillis = 0;
   #include <HTTPClient.h>
   #include <WiFiClientSecure.h>
   #define ATTRIBUTE_READ_INTERVAL_MS 60000
+  #define CLIENT_TIMEOUT_MS 8000
+  #define HTTP_TIMEOUT_MS 8000
 #endif
 
 #include "SerialLogger.h"
@@ -707,6 +709,9 @@ static int generateTelemetryPayload(bool sendEmpty = false)
     secureClient.setInsecure();
   #endif
 
+    secureClient.setTimeout(CLIENT_TIMEOUT_MS);
+    http.setTimeout(HTTP_TIMEOUT_MS);  
+
     int result = 0;
     if (http.begin(secureClient, api_endpoint_url)) {
       http.addHeader("Content-Type", "application/json");
@@ -751,6 +756,8 @@ static int generateTelemetryPayload(bool sendEmpty = false)
     onDelayMs = 0;
 
     int result = 0;
+    secureClient.setTimeout(CLIENT_TIMEOUT_MS);
+    http.setTimeout(HTTP_TIMEOUT_MS);      
     
     if (http.begin(secureClient, api_attributes_url)) {
       http.setTimeout(5000);
