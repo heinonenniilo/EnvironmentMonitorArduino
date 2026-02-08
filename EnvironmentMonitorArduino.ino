@@ -93,7 +93,6 @@ unsigned long lastAttributesReadMillis = 0;
   #include <HTTPClient.h>
   #include <WiFiClientSecure.h>
   #define ATTRIBUTE_READ_INTERVAL_MS 60000
-  #define CLIENT_TIMEOUT_MS 8000
   #define HTTP_TIMEOUT_MS 8000
 #endif
 
@@ -708,12 +707,10 @@ static int generateTelemetryPayload(bool sendEmpty = false)
   #else
     secureClient.setInsecure();
   #endif
-
-    secureClient.setTimeout(CLIENT_TIMEOUT_MS);
-    http.setTimeout(HTTP_TIMEOUT_MS);  
-
+  
     int result = 0;
     if (http.begin(secureClient, api_endpoint_url)) {
+      http.setTimeout(HTTP_TIMEOUT_MS);
       http.addHeader("Content-Type", "application/json");
 
       // Custom authentication headers defined in iot_configs.h
@@ -755,13 +752,10 @@ static int generateTelemetryPayload(bool sendEmpty = false)
     motionControlStatus = 0;
     onDelayMs = 0;
 
-    int result = 0;
-    secureClient.setTimeout(CLIENT_TIMEOUT_MS);
-    http.setTimeout(HTTP_TIMEOUT_MS);      
+    int result = 0;  
     
     if (http.begin(secureClient, api_attributes_url)) {
-      http.setTimeout(5000);
-
+      http.setTimeout(HTTP_TIMEOUT_MS);
       // If your API needs to know what it returns, add Accept header
       http.addHeader("Accept", "application/json");
 
