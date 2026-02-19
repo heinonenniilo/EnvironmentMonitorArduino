@@ -52,11 +52,11 @@
 // Message settings
 #define SUCCESS_LIMIT 3
 
+#define MEASURE_LIMIT 30
+
 #ifdef USE_IOT_HUB
-  #define MEASURE_LIMIT 75
   #define COMMUNICATION_ERROR_LIMIT 12
 #else
-  #define MEASURE_LIMIT 30
   #define COMMUNICATION_ERROR_LIMIT 5 // Causes boot in case sending measurements fails five times in a row
 #endif
 // Polling for attributes
@@ -93,6 +93,7 @@ unsigned long lastAttributesReadMillis = 0;
   #include <HTTPClient.h>
   #include <WiFiClientSecure.h>
   #define ATTRIBUTE_READ_INTERVAL_MS 60000
+  #define HTTP_TIMEOUT_MS 8000
 #endif
 
 #include "SerialLogger.h"
@@ -706,9 +707,10 @@ static int generateTelemetryPayload(bool sendEmpty = false)
   #else
     secureClient.setInsecure();
   #endif
-
+  
     int result = 0;
     if (http.begin(secureClient, api_endpoint_url)) {
+      http.setTimeout(HTTP_TIMEOUT_MS);
       http.addHeader("Content-Type", "application/json");
 
       // Custom authentication headers defined in iot_configs.h
@@ -750,11 +752,10 @@ static int generateTelemetryPayload(bool sendEmpty = false)
     motionControlStatus = 0;
     onDelayMs = 0;
 
-    int result = 0;
+    int result = 0;  
     
     if (http.begin(secureClient, api_attributes_url)) {
-      http.setTimeout(5000);
-
+      http.setTimeout(HTTP_TIMEOUT_MS);
       // If your API needs to know what it returns, add Accept header
       http.addHeader("Accept", "application/json");
 
