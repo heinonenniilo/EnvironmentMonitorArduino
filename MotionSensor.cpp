@@ -1,10 +1,11 @@
 #include "MotionSensor.h"
 #include "SerialLogger.h"
 
-MotionSensor::MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsList, std::initializer_list<uint8_t> outPinsList, bool multiTriggerMode) : Sensor(sensorId), 
+MotionSensor::MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsList, std::initializer_list<uint8_t> outPinsList, bool multiTriggerMode, bool orMode) : Sensor(sensorId), 
   inPins(inPinsList), 
   outPins(outPinsList),
-  multiTriggerMode(multiTriggerMode)
+  multiTriggerMode(multiTriggerMode),
+  orMode(orMode)
 {}
 
 void MotionSensor::begin() 
@@ -161,17 +162,29 @@ void MotionSensor::resetAverages()
 // Private functions
 bool MotionSensor::readCurrentMotion()
 {
-  bool motionNow = 0;
+  bool motionNow = !orMode; 
   for (uint8_t i = 0; i < inPins.size(); i++) 
   {
     int reading = digitalRead(inPins[i]);
     if (reading == HIGH)
     {
-      motionNow = 1;
       debugPrint("Motion detected in pin: " + String(inPins[i]));
-      continue;
+      if (orMode) 
+      {
+        motionNow = 1;
+        break;
+      }
+    } else 
+    {
+      debugPrint("No motion detected in pin: " + String(inPins[i]));
+      if (!orMode) 
+      {
+        motionNow = 0;
+        break;
+      }
     }
   }
+  debugPrint("Motion: " + String(motionNow));
   return motionNow;  
 }
 
