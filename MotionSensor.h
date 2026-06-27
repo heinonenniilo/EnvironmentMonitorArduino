@@ -22,6 +22,7 @@ private:
   bool motionDetectedTelemetry = 0; // Aggregated value, for telemetry
   bool motionDetectedDisplay = 0; // Aggregated for display
   bool multiTriggerMode = 1;
+  bool orMode = 0;
   // Status
   bool lastMotionStatus = 0; 
   unsigned long lastMotionOnMillis = 0;
@@ -32,7 +33,7 @@ private:
   bool readCurrentMotion();
   void setOutputs(bool mode);
 public:
-    MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsList, std::initializer_list<uint8_t> outPinsList, bool multiTriggerMode);
+    MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsList, std::initializer_list<uint8_t> outPinsList, bool multiTriggerMode, bool orMode);
 
     void begin() override;
     int readMotion(bool aggregate) override;
