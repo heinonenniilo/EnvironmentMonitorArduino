@@ -1,12 +1,15 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // SPDX-License-Identifier: MIT
 
+#include <Arduino.h>
+#include "configs/iot_configs.h"
+#if defined(USE_IOT_HUB) && !defined(USE_MQQT_BROKER)
 #include "AzIoTSasToken.h"
 #include "SerialLogger.h"
 #include <az_result.h>
 #include <mbedtls/base64.h>
 #include <mbedtls/md.h>
-#include <mbedtls/sha256.h>
+// #include <mbedtls/sha256.h> // Not in esp32 4.0 board?
 #include <stdlib.h>
 #include <time.h>
 
@@ -285,3 +288,4 @@ bool AzIoTSasToken::IsExpired()
 }
 
 az_span AzIoTSasToken::Get() { return this->sasToken; }
+#endif
