@@ -90,8 +90,53 @@ jobs:
           name: sketches-report-http-api
           path: "sketches-reports"
 
+  build-mqtt-broker:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tls: [0, 1]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare MQTT broker configuration
+        run: |
+          mv ./iot_configs.h ./configs/iot_configs.h
+          mv ./configs/pins_CP2102.h ./configs/pins.h
+          echo '#define USE_MQQT_BROKER' >> ./configs/iot_configs.h
+          echo '#define USE_HTTP_API' >> ./configs/iot_configs.h
+      - uses: arduino/compile-sketches@v1
+        name: "Build Arduino solution (MQTT broker)"
+        with:
+          fqbn: "esp32:esp32:esp32:PartitionScheme=no_ota"
+          platforms: |
+            - name: "esp32:esp32"
+              source-url: "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
+          libraries: |
+            - name: ArduinoJSON
+            - name: ArduinoMqttClient
+            - name: DHT sensor library
+            - name: Adafruit Unified Sensor
+            - name: DallasTemperature
+            - name: Adafruit SH110X
+            - name: Adafruit SSD1306
+            - name: BH1750
+            - name: Adafruit GFX Library
+            - name: OneWire
+            - name: NimBLE-Arduino
+          sketch-paths: |
+            - "."
+          cli-compile-flags: |
+            - --build-property
+            - compiler.cpp.extra_flags=-DMQTT_BROKER_USE_TLS=${{ matrix.tls }}
+          enable-deltas-report: true
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+      - uses: actions/upload-artifact@v4
+        name: "Upload sketches report (MQTT broker)"
+        with:
+          name: sketches-report-mqtt-broker-tls-${{ matrix.tls }}
+          path: "sketches-reports"
+
   report:
-    needs: [build-iot-hub, build-http-api]
+    needs: [build-iot-hub, build-http-api, build-mqtt-broker]
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
