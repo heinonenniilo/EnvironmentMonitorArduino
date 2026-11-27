@@ -1,7 +1,7 @@
 # Environment Monitor - Arduino
 
 Arduino firmware for reading and aggregating measurement data on ESP32 devices.
-The firmware source is in `src/`, with [src/main.cpp](src/main.cpp) as the entry point.
+The firmware entry point is [src/main.cpp](src/main.cpp), and the sensor drivers are in [src/sensors/](src/sensors/).
 
 The main purpose of the solution is to aggregate measurement data and send it to Azure IoT hub. The solution can also be used to display measurement data in an Oled dispay. Measurement data used in [Environment Monitor](https://github.com/heinonenniilo/EnvironmentMonitor) is provided by this solution.
 

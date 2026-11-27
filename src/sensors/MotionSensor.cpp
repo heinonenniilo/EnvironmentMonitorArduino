@@ -1,5 +1,5 @@
 #include "MotionSensor.h"
-#include "SerialLogger.h"
+#include "../SerialLogger.h"
 
 MotionSensor::MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsList, std::initializer_list<uint8_t> outPinsList, bool multiTriggerMode, bool orMode) : Sensor(sensorId), 
   inPins(inPinsList), 

@@ -1,5 +1,5 @@
 #include "TMP36Sensor.h"
-#include "SerialLogger.h"
+#include "../SerialLogger.h"
 
 TMP36Sensor::TMP36Sensor(int sensorId, int pin) : Sensor(sensorId), pin(pin) {}
 

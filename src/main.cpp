@@ -3,11 +3,11 @@
 #include <ArduinoJson.h>
 #include <vector>
 // Sensors implementations
-#include "DHT22Sensor.h" 
-#include "TMP36Sensor.h"
-#include "DS18B20Sensor.h"
-#include "BH1750FVISensor.h"
-#include "MotionSensor.h"
+#include "sensors/DHT22Sensor.h"
+#include "sensors/TMP36Sensor.h"
+#include "sensors/DS18B20Sensor.h"
+#include "sensors/BH1750FVISensor.h"
+#include "sensors/MotionSensor.h"
 // Display
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -38,7 +38,7 @@
 #ifdef RUUVI_MAC
   #include <NimBLEDevice.h>
   #include <NimBLEAdvertisedDevice.h>
-  #include "RuuviTagScanner.h"
+  #include "sensors/RuuviTagScanner.h"
 #endif
 
 

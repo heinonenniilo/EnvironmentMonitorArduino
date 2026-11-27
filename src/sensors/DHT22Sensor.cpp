@@ -1,5 +1,5 @@
 #include "DHT22Sensor.h"
-#include "SerialLogger.h"
+#include "../SerialLogger.h"
 
 // Constructor implementation
 DHT22Sensor::DHT22Sensor(int sensorId, int pin) : Sensor(sensorId) ,pin(pin), dht(pin, DHT22) {}

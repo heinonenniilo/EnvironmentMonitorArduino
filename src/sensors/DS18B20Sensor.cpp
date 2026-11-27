@@ -1,5 +1,5 @@
 #include "DS18B20Sensor.h"
-#include "SerialLogger.h"
+#include "../SerialLogger.h"
 
 DS18B20Sensor::DS18B20Sensor(int sensorId, int pin) : Sensor(sensorId), pin(pin), oneWire(pin), sensors(&oneWire) {}
 
