@@ -1,5 +1,5 @@
 #include "BH1750FVISensor.h"
-#include "SerialLogger.h"
+#include "../SerialLogger.h"
 
 BH1750FVISensor::BH1750FVISensor(int sensorId) : Sensor(sensorId), lightMeter() {}
 

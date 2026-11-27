@@ -1,6 +1,6 @@
 #ifndef SENSOR_H
 #define SENSOR_H
-#include "SerialLogger.h"
+#include "../SerialLogger.h"
 #define DEBUG_SENSOR 0
 
 class Sensor {

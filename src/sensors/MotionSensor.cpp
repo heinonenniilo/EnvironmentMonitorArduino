@@ -1,5 +1,5 @@
 #include "MotionSensor.h"
-#include "SerialLogger.h"
+#include "../SerialLogger.h"
 
 MotionSensor::MotionSensor(int sensorId, std::initializer_list<uint8_t> inPinsList, std::initializer_list<uint8_t> outPinsList, bool multiTriggerMode, bool orMode) : Sensor(sensorId), 
   inPins(inPinsList), 
@@ -68,6 +68,7 @@ void MotionSensor::checkOutputs()
   {
     debugPrint("LastMotionStatus: " + String(lastMotionStatus) + ", MotionNow: " + String(motionNow) + ", MultiTriggerMode: " + String(multiTriggerMode) + ". Will set lastMotionOnMillis to: " + String(millisNow));
     lastMotionOnMillis = millisNow;
+    diff = millisNow - lastMotionOnMillis;
   }
 
   if (lastMotionOnMillis != 0 && ((diff) < motionControlDelaysMs) && diff > 0) 

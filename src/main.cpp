@@ -1,12 +1,13 @@
 // Sensors
+#include <Arduino.h>
 #include <ArduinoJson.h>
 #include <vector>
 // Sensors implementations
-#include "DHT22Sensor.h" 
-#include "TMP36Sensor.h"
-#include "DS18B20Sensor.h"
-#include "BH1750FVISensor.h"
-#include "MotionSensor.h"
+#include "sensors/DHT22Sensor.h"
+#include "sensors/TMP36Sensor.h"
+#include "sensors/DS18B20Sensor.h"
+#include "sensors/BH1750FVISensor.h"
+#include "sensors/MotionSensor.h"
 // Display
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -37,7 +38,7 @@
 #ifdef RUUVI_MAC
   #include <NimBLEDevice.h>
   #include <NimBLEAdvertisedDevice.h>
-  #include "RuuviTagScanner.h"
+  #include "sensors/RuuviTagScanner.h"
 #endif
 
 
@@ -56,7 +57,7 @@
     #endif
   #endif
 #elif !defined(USE_IOT_HUB) && !defined(USE_HTTP_API)
-  #error "Define USE_IOT_HUB, USE_HTTP_API, or USE_MQQT_BROKER in configs/iot_configs.h"
+  #error "Define USE_IOT_HUB, USE_HTTP_API, or USE_MQQT_BROKER in src/configs/iot_configs.h"
 #endif
 // Commands from IOT HUB
 #define CMD_REBOOT "REBOOT"
@@ -293,7 +294,13 @@ void receivedCallback(char* topic, byte* payload, unsigned int length) {
 }
 
 
+void setStatus(int statusToSet);
+static void printCommunicationError();
+
 #if defined(USE_IOT_HUB) || defined(USE_MQQT_BROKER)
+  bool parseMotionControlStatus(const String& message, MotionControlStatus& status);
+  bool parseMotionControlDelay(const String& message, unsigned long& delayMs);
+
   void handleCommand()
   {
     if (strcmp(incoming_data, CMD_REBOOT) == 0) 

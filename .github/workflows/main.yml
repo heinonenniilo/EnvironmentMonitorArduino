@@ -1,4 +1,4 @@
-name: Build Environment Monitor Arduino
+name: Build Environment Monitor ESP32
 
 on:
   push:
@@ -8,144 +8,38 @@ on:
   pull_request:
 
 jobs:
-  build-iot-hub:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Move iot_configs.h to configs folder
-        run: |
-          mv ./iot_configs.h ./configs/iot_configs.h
-      - name: Rename pins_CP2102.h as pins.h
-        run: |
-          mv ./configs/pins_CP2102.h ./configs/pins.h
-      - uses: arduino/compile-sketches@v1
-        name: "Build Arduino solution (IoT Hub)"
-        with:
-          fqbn: "esp32:esp32:esp32"
-          platforms: |
-            - name: "esp32:esp32"
-              source-url: "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
-          libraries: |
-            - name: ArduinoJSON
-            - name: Azure SDK for C
-            - name: DHT sensor library
-            - name: Adafruit Unified Sensor
-            - name: DallasTemperature
-            - name: Adafruit SH110X
-            - name: Adafruit SSD1306
-            - name: BH1750
-            - name: Adafruit GFX Library
-            - name: OneWire
-            - name: NimBLE-Arduino
-          sketch-paths: |
-            "."
-          enable-deltas-report: true
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-      - uses: actions/upload-artifact@v4
-        name: "Upload sketches report (IoT Hub)"
-        with:
-          name: sketches-report-iot-hub
-          path: "sketches-reports"
-
-  build-http-api:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Move iot_configs.h to configs folder
-        run: |
-          mv ./iot_configs.h ./configs/iot_configs.h
-      - name: Rename pins_CP2102.h as pins.h
-        run: |
-          mv ./configs/pins_CP2102.h ./configs/pins.h
-      - name: Switch to HTTP API mode
-        run: |
-          sed -i 's/^#define USE_IOT_HUB/\/\/#define USE_IOT_HUB/' ./configs/iot_configs.h
-          sed -i 's/^\/\/#define USE_HTTP_API/#define USE_HTTP_API/' ./configs/iot_configs.h
-      - uses: arduino/compile-sketches@v1
-        name: "Build Arduino solution (HTTP API)"
-        with:
-          fqbn: "esp32:esp32:esp32"
-          platforms: |
-            - name: "esp32:esp32"
-              source-url: "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
-          libraries: |
-            - name: ArduinoJSON
-            - name: Azure SDK for C
-            - name: DHT sensor library
-            - name: Adafruit Unified Sensor
-            - name: DallasTemperature
-            - name: Adafruit SH110X
-            - name: Adafruit SSD1306
-            - name: BH1750
-            - name: Adafruit GFX Library
-            - name: OneWire
-            - name: NimBLE-Arduino
-          sketch-paths: |
-            "."
-          enable-deltas-report: true
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-      - uses: actions/upload-artifact@v4
-        name: "Upload sketches report (HTTP API)"
-        with:
-          name: sketches-report-http-api
-          path: "sketches-reports"
-
-  build-mqtt-broker:
+  build:
+    name: Build ${{ matrix.variant }}
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        tls: [0, 1]
+        variant: [iot-hub, http-api, mqtt, mqtt-tls]
+
     steps:
       - uses: actions/checkout@v4
-      - name: Prepare MQTT broker configuration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PlatformIO
+        run: python -m pip install platformio==6.2.0
+      - name: Prepare device configuration
+        working-directory: src/configs
+        env:
+          BUILD_VARIANT: ${{ matrix.variant }}
         run: |
-          mv ./iot_configs.h ./configs/iot_configs.h
-          mv ./configs/pins_CP2102.h ./configs/pins.h
-          echo '#define USE_MQQT_BROKER' >> ./configs/iot_configs.h
-          echo '#define USE_HTTP_API' >> ./configs/iot_configs.h
-      - uses: arduino/compile-sketches@v1
-        name: "Build Arduino solution (MQTT broker)"
-        with:
-          fqbn: "esp32:esp32:esp32:PartitionScheme=no_ota"
-          platforms: |
-            - name: "esp32:esp32"
-              source-url: "https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json"
-          libraries: |
-            - name: ArduinoJSON
-            - name: ArduinoMqttClient
-            - name: DHT sensor library
-            - name: Adafruit Unified Sensor
-            - name: DallasTemperature
-            - name: Adafruit SH110X
-            - name: Adafruit SSD1306
-            - name: BH1750
-            - name: Adafruit GFX Library
-            - name: OneWire
-            - name: NimBLE-Arduino
-          sketch-paths: |
-            - "."
-          cli-compile-flags: |
-            - --build-property
-            - compiler.cpp.extra_flags=-DMQTT_BROKER_USE_TLS=${{ matrix.tls }}
-          enable-deltas-report: true
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
-      - uses: actions/upload-artifact@v4
-        name: "Upload sketches report (MQTT broker)"
-        with:
-          name: sketches-report-mqtt-broker-tls-${{ matrix.tls }}
-          path: "sketches-reports"
-
-  report:
-    needs: [build-iot-hub, build-http-api, build-mqtt-broker]
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Download sketches reports artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: "sketches-reports"
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: arduino/report-size-deltas@v1
-        with:
-          sketches-reports-source: "sketches-reports"
+          cp pins_CP2102.h pins.h
+          cp iot_configs.example.h iot_configs.h
+          case "$BUILD_VARIANT" in
+            http-api)
+              sed -i 's|^#define USE_IOT_HUB$|//#define USE_IOT_HUB|; s|^//#define USE_HTTP_API$|#define USE_HTTP_API|' iot_configs.h
+              ;;
+            mqtt|mqtt-tls)
+              sed -i 's|^//#define USE_MQQT_BROKER$|#define USE_MQQT_BROKER|' iot_configs.h
+              if [ "$BUILD_VARIANT" = mqtt ]; then
+                sed -i 's/^#define MQTT_BROKER_USE_TLS 1$/#define MQTT_BROKER_USE_TLS 0/' iot_configs.h
+              fi
+              ;;
+          esac
+      - name: Build firmware
+        run: pio run -e esp32dev
