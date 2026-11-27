@@ -30,7 +30,7 @@ pio device monitor -e esp32dev
 
 If PlatformIO picks the wrong COM port, run `pio device list` and pass the board's port to Upload with `--upload-port COM5` or to Monitor with `--port COM5`, replacing `COM5` as needed. If Upload stalls at `Connecting...`, hold **BOOT**, tap **EN/RESET** if present, and release **BOOT** once writing begins. [Espressif bootloader guide](https://docs.espressif.com/projects/esptool/en/latest/esp32/esptool/entering-bootloader.html)
 
-The `esp32dev` environment targets a classic ESP32 with 4 MB of flash. The `no_ota.csv` partition layout matches the existing MQTT build and gives the firmware more space. Git ignores the generated `.pio/` directory.
+The `esp32dev` environment targets a classic ESP32 with 4 MB of flash. The `huge_app.csv` partition layout reserves 3 MiB for firmware and 896 KiB for SPIFFS. Upload over USB to apply a new partition layout. Git ignores the generated `.pio/` directory.
 
 GitHub Actions builds the `esp32dev` environment with PlatformIO for Azure IoT Hub, HTTP API, and MQTT with and without TLS.
 
