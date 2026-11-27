@@ -1,4 +1,5 @@
 // Sensors
+#include <Arduino.h>
 #include <ArduinoJson.h>
 #include <vector>
 // Sensors implementations
@@ -56,7 +57,7 @@
     #endif
   #endif
 #elif !defined(USE_IOT_HUB) && !defined(USE_HTTP_API)
-  #error "Define USE_IOT_HUB, USE_HTTP_API, or USE_MQQT_BROKER in configs/iot_configs.h"
+  #error "Define USE_IOT_HUB, USE_HTTP_API, or USE_MQQT_BROKER in src/configs/iot_configs.h"
 #endif
 // Commands from IOT HUB
 #define CMD_REBOOT "REBOOT"
@@ -293,7 +294,13 @@ void receivedCallback(char* topic, byte* payload, unsigned int length) {
 }
 
 
+void setStatus(int statusToSet);
+static void printCommunicationError();
+
 #if defined(USE_IOT_HUB) || defined(USE_MQQT_BROKER)
+  bool parseMotionControlStatus(const String& message, MotionControlStatus& status);
+  bool parseMotionControlDelay(const String& message, unsigned long& delayMs);
+
   void handleCommand()
   {
     if (strcmp(incoming_data, CMD_REBOOT) == 0) 

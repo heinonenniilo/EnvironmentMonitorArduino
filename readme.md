@@ -1,6 +1,7 @@
 # Environment Monitor - Arduino
 
 Arduino firmware for reading and aggregating measurement data on ESP32 devices.
+The firmware source is in `src/`, with [src/main.cpp](src/main.cpp) as the entry point.
 
 The main purpose of the solution is to aggregate measurement data and send it to Azure IoT hub. The solution can also be used to display measurement data in an Oled dispay. Measurement data used in [Environment Monitor](https://github.com/heinonenniilo/EnvironmentMonitor) is provided by this solution.
 
@@ -15,7 +16,7 @@ Azure IoT hub can also be used to communicate with device for sending basic comm
 ### Build and flash with PlatformIO
 
 1. Open this repository folder in VS Code with the PlatformIO extension enabled. PlatformIO detects `platformio.ini` and installs the ESP32 toolchain and libraries on the first build.
-2. Check `configs/iot_configs.h` for the Wi-Fi and telemetry settings for this device, and `configs/pins.h` for its GPIO assignments. For a fresh checkout, copy the root `iot_configs.h` example to `configs/iot_configs.h`, and copy either `configs/pins_CP2102.h` or `configs/pins_ESPDUINO.h` to `configs/pins.h` to match your wiring. Git ignores both local configuration files.
+2. In `src/configs/`, copy [iot_configs.example.h](src/configs/iot_configs.example.h) to `iot_configs.h` and enter your Wi-Fi and telemetry settings. Copy the [CP2102](src/configs/pins_CP2102.h) or [ESPDUINO](src/configs/pins_ESPDUINO.h) template to `pins.h` to match your wiring. Git ignores both local configuration files.
 3. Connect the ESP32 with a USB data cable and close any serial monitor using its COM port. In **PlatformIO → Project Tasks → esp32dev → General**, click **Build**, then **Upload** to flash the board.
 4. Open **Monitor** in the same menu to see the startup logs at 115200 baud.
 
@@ -31,27 +32,13 @@ If PlatformIO picks the wrong COM port, run `pio device list` and pass the board
 
 The `esp32dev` environment targets a classic ESP32 with 4 MB of flash. The `no_ota.csv` partition layout matches the existing MQTT build and gives the firmware more space. Git ignores the generated `.pio/` directory.
 
-### Arduino IDE
-
-Install ESP32 board support and these libraries when building with Arduino IDE:
-
-- ArduinoJSON
-- Azure SDK for C
-- DHT sensor library
-  - Adafruit Unified Sensor
-- DallasTemperature
-  - OneWire
-- Adafruit_SH110X
-- Adafruit_SSD1306
-- BH1750
-- [NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino)
-- ArduinoMqttClient (for MQTT broker mode)
+GitHub Actions builds the `esp32dev` environment with PlatformIO for Azure IoT Hub, HTTP API, and MQTT with and without TLS.
 
 ### MQTT broker communication
 
-Define `USE_MQQT_BROKER` in `configs/iot_configs.h` to use ArduinoMqttClient instead of
+Define `USE_MQQT_BROKER` in `src/configs/iot_configs.h` to use ArduinoMqttClient instead of
 Azure IoT Hub or the HTTP API. This flag takes precedence if either other flag is still defined.
-Copy the `MQTT_BROKER_*` settings from the root example into your device configuration.
+Copy the `MQTT_BROKER_*` settings from [iot_configs.example.h](src/configs/iot_configs.example.h) into your device configuration.
 Set the broker hostname, username, password, and trusted root CA PEM certificate.
 The certificate uses the same variable-based pattern as HTTP:
 
@@ -81,8 +68,6 @@ Commands are plain-text payloads, using the same handlers as IoT Hub:
 `REBOOT`, `MOTIONCONTROLSTATUS:0` (always off), `MOTIONCONTROLSTATUS:1` (always on),
 `MOTIONCONTROLSTATUS:2` (motion controlled), and `MOTIONCONTROLDELAY:45000`
 (positive delay in milliseconds). Do not retain reboot commands.
-
-_pins_CP2102.h_ / _pins_ESPDUINO.h_ are configs used for different kinds of ESP32s. More dynamic solution for defining the sensors to use could be considered.
 
 Supported sensors:
 - DHT22
