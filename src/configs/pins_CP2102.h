@@ -1,4 +1,4 @@
-// CP2102 PINS EXAMPLE
+// CP2102 PINS
 #define REDLEDPIN 27
 #define GREENLEDPIN 26
 #define YELLOWLEDPIN 33
@@ -11,21 +11,20 @@
 
 // #define DS18B20_2_PIN 19
 // #define DS18B20_2_SENSORID 3
+#define BH1750FVI_SENSORID 3
 
-// #define BH1750FVI_SENSORID 3 // 4
-
-#define MOTIONSENSOR_OUT_PINS {17} // {17,23} 
-#define MOTIONSENSOR_IN_PINS {18} // {18, 2 }
-#define MOTIONSENSOR_SENSORID 3 //    
+#define MOTIONSENSOR_OUT_PINS {17,23} 
+#define MOTIONSENSOR_IN_PINS {18, 2} 
+#define MOTIONSENSOR_SENSORID 4
 #define MOTIONSENSOR_MULTI_TRIGGER_MODE 1  
 #define MOTIONSENSOR_DISPLAY_ON_DELAY 1
 #define MOTIONSENSOR_OR_MODE 1
 
-// #define RUUVI_MAC "xx:xx:xx:xx:xx:xx"
-// #define RUUVI_SENSORID 5
+#define RUUVI_MAC "c2:00:00:00:00:01"
+#define RUUVI_SENSORID 5
 
-// #define RUUVI_MAC_2 "xx:xx:xx:xx:xx:xx"
-// #define RUUVI_SENSORID_2 5
+#define RUUVI_MAC_2 "c2:00:00:00:00:02"
+#define RUUVI_SENSORID_2 6
 
 // Screen definitions
 #define USE_DISPLAY 1 // Uncomment in order not to use display
