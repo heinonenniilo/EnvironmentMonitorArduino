@@ -63,12 +63,14 @@ void MotionSensor::checkOutputs()
   }
 
   unsigned long millisNow = millis();
-  unsigned long diff = millisNow - lastMotionOnMillis;
+
   if (lastMotionOnMillis != 0 && motionNow && multiTriggerMode) 
   {
     debugPrint("LastMotionStatus: " + String(lastMotionStatus) + ", MotionNow: " + String(motionNow) + ", MultiTriggerMode: " + String(multiTriggerMode) + ". Will set lastMotionOnMillis to: " + String(millisNow));
     lastMotionOnMillis = millisNow;
   }
+
+  unsigned long diff = millisNow - lastMotionOnMillis;
 
   if (lastMotionOnMillis != 0 && ((diff) < motionControlDelaysMs) && diff > 0) 
   {
