@@ -1,6 +1,6 @@
 # Environment Monitor - Arduino
 
-Arduino solution for reading and aggregating measurement data. The solution has been developed with Arduino IDE. The code has been run on ESP32 devices.
+Arduino firmware for reading and aggregating measurement data on ESP32 devices.
 
 The main purpose of the solution is to aggregate measurement data and send it to Azure IoT hub. The solution can also be used to display measurement data in an Oled dispay. Measurement data used in [Environment Monitor](https://github.com/heinonenniilo/EnvironmentMonitor) is provided by this solution.
 
@@ -12,11 +12,33 @@ Azure IoT hub can also be used to communicate with device for sending basic comm
 - Output ON delay, in milli seconds, after input goes to zero
 - Whether outputs are always on/off or controlled based on motion sensor value
 
-Required libraries:
+### Build and flash with PlatformIO
+
+1. Open this repository folder in VS Code with the PlatformIO extension enabled. PlatformIO detects `platformio.ini` and installs the ESP32 toolchain and libraries on the first build.
+2. Check `configs/iot_configs.h` for the Wi-Fi and telemetry settings for this device, and `configs/pins.h` for its GPIO assignments. For a fresh checkout, copy the root `iot_configs.h` example to `configs/iot_configs.h`, and copy either `configs/pins_CP2102.h` or `configs/pins_ESPDUINO.h` to `configs/pins.h` to match your wiring. Git ignores both local configuration files.
+3. Connect the ESP32 with a USB data cable and close any serial monitor using its COM port. In **PlatformIO → Project Tasks → esp32dev → General**, click **Build**, then **Upload** to flash the board.
+4. Open **Monitor** in the same menu to see the startup logs at 115200 baud.
+
+The equivalent commands in a PlatformIO terminal are:
+
+```powershell
+pio run -e esp32dev
+pio run -e esp32dev -t upload
+pio device monitor -e esp32dev
+```
+
+If PlatformIO picks the wrong COM port, run `pio device list` and pass the board's port to Upload with `--upload-port COM5` or to Monitor with `--port COM5`, replacing `COM5` as needed. If Upload stalls at `Connecting...`, hold **BOOT**, tap **EN/RESET** if present, and release **BOOT** once writing begins. [Espressif bootloader guide](https://docs.espressif.com/projects/esptool/en/latest/esp32/esptool/entering-bootloader.html)
+
+The `esp32dev` environment targets a classic ESP32 with 4 MB of flash. The `no_ota.csv` partition layout matches the existing MQTT build and gives the firmware more space. Git ignores the generated `.pio/` directory.
+
+### Arduino IDE
+
+Install ESP32 board support and these libraries when building with Arduino IDE:
+
 - ArduinoJSON
 - Azure SDK for C
 - DHT sensor library
-  - Adafruid Unified Sensor
+  - Adafruit Unified Sensor
 - DallasTemperature
   - OneWire
 - Adafruit_SH110X
@@ -24,11 +46,6 @@ Required libraries:
 - BH1750
 - [NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino)
 - ArduinoMqttClient (for MQTT broker mode)
-
-Required boards:
-- ESP32 board support should be added to Arduino IDE. Minor changes likely needed if run with Arduino hardware.
-
-Actual IOT hub configurations to be placed in **configs**-folder. Iot_configs.h in root is an example. 
 
 ### MQTT broker communication
 
