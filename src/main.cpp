@@ -181,19 +181,49 @@ static String generateIdentifier(unsigned long uptime, unsigned long messageOrde
   return result;
 }
 
-void receivedCallback(char* topic, byte* payload, unsigned int length) {
-  Logger.Info("Received [");
-  Logger.Info(topic);
-  Logger.Info("]: ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
+void setStatus(int statusToSet) {
+
+  deviceStatus = statusToSet;
+  if (statusToSet == 0) {
+    digitalWrite(REDLEDPIN, HIGH);
+    digitalWrite(GREENLEDPIN, LOW);
+    digitalWrite(YELLOWLEDPIN, LOW);
+  } else if (statusToSet == 1) {
+    digitalWrite(REDLEDPIN, LOW);
+    digitalWrite(GREENLEDPIN, HIGH);
+    digitalWrite(YELLOWLEDPIN, LOW);
+  } else if (statusToSet == 2) {
+    digitalWrite(GREENLEDPIN, LOW);
+    digitalWrite(REDLEDPIN, LOW);
+    digitalWrite(YELLOWLEDPIN, LOW);
+  } else if (statusToSet == 3)
+  {
+    digitalWrite(GREENLEDPIN, LOW);
+    digitalWrite(REDLEDPIN, LOW);
+    digitalWrite(YELLOWLEDPIN, HIGH);
+  } else if (statusToSet == 4) // Indicate read attributes
+  {
+    digitalWrite(GREENLEDPIN, HIGH);
+    digitalWrite(REDLEDPIN, LOW);
+    digitalWrite(YELLOWLEDPIN, HIGH);
   }
-  Serial.println("");
 }
 
+static void printCommunicationError()
+{
+  Logger.Error("COMMUNICATION ERROR");
+  Logger.Error("Count: " + String(communicationErrorCount.load()));
 
-void setStatus(int statusToSet);
-static void printCommunicationError();
+  #ifdef USE_DISPLAY
+    display.clearDisplay();
+    display.setCursor(0, 0);
+
+    display.println("COMMUNICATION ERROR");
+    display.println("Count: " + String(communicationErrorCount.load()));
+
+    display.display();
+  #endif
+}
 
 void recordCommunicationError()
 {
@@ -205,14 +235,12 @@ void clearCommunicationErrors()
   communicationErrorCount = 0;
 }
 
-#ifdef USE_MQQT_BROKER
-  void reportBrokerCommunicationError()
-  {
-    recordCommunicationError();
-    setStatus(0);
-    printCommunicationError();
-  }
-#endif
+void reportCommunicationError()
+{
+  recordCommunicationError();
+  setStatus(0);
+  printCommunicationError();
+}
 
 #if defined(USE_IOT_HUB) || defined(USE_MQQT_BROKER)
   #define CMD_REBOOT "REBOOT"
@@ -485,9 +513,7 @@ static int generateTelemetryPayload(bool sendEmpty = false)
       clearCommunicationErrors();
     } else
     {
-      setStatus(0);
-      recordCommunicationError();
-      printCommunicationError();
+      reportCommunicationError();
     }
     return postResult;
   }
@@ -564,34 +590,6 @@ static int sendTelemetry(bool sendEmpty = false) {
   #endif
 }
 
-void setStatus(int statusToSet) {
-
-  deviceStatus = statusToSet;
-  if (statusToSet == 0) {
-    digitalWrite(REDLEDPIN, HIGH);
-    digitalWrite(GREENLEDPIN, LOW);
-    digitalWrite(YELLOWLEDPIN, LOW);
-  } else if (statusToSet == 1) {
-    digitalWrite(REDLEDPIN, LOW);
-    digitalWrite(GREENLEDPIN, HIGH);
-    digitalWrite(YELLOWLEDPIN, LOW);
-  } else if (statusToSet == 2) {
-    digitalWrite(GREENLEDPIN, LOW);
-    digitalWrite(REDLEDPIN, LOW);
-    digitalWrite(YELLOWLEDPIN, LOW);
-  } else if (statusToSet == 3) 
-  {
-    digitalWrite(GREENLEDPIN, LOW);
-    digitalWrite(REDLEDPIN, LOW);
-    digitalWrite(YELLOWLEDPIN, HIGH);
-  } else if (statusToSet == 4) // Indicate read attributes
-  {
-    digitalWrite(GREENLEDPIN, HIGH);
-    digitalWrite(REDLEDPIN, LOW);
-    digitalWrite(YELLOWLEDPIN, HIGH);
-  }
-}
-
 bool parseMotionControlStatus(const String& message, MotionControlStatus& status) {
     const String prefix = "MOTIONCONTROLSTATUS:";
     int index = message.indexOf(prefix); 
@@ -652,22 +650,6 @@ static void rebootDevice()
   #endif
   delay(5000);
   ESP.restart();
-}
-
-static void printCommunicationError()
-{
-  Logger.Error("COMMUNICATION ERROR");
-  Logger.Error("Count: " + String(communicationErrorCount.load()));
-
-  #ifdef USE_DISPLAY
-    display.clearDisplay();
-    display.setCursor(0, 0);
-
-    display.println("COMMUNICATION ERROR");
-    display.println("Count: " + String(communicationErrorCount.load()));
-
-    display.display();
-  #endif
 }
 
 #ifdef RUUVI_MAC

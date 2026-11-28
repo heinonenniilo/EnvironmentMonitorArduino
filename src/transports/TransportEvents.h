@@ -2,7 +2,7 @@
 
 void recordCommunicationError();
 void clearCommunicationErrors();
+void reportCommunicationError();
 
 void handleCommand(const char* command);
-void reportBrokerCommunicationError();
 void setStatus(int statusToSet);

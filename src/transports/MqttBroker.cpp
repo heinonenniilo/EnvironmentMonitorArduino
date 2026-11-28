@@ -177,7 +177,7 @@ namespace MqttBroker
           " (128=refused); check broker topic permissions");
       }
       brokerClient.stop();
-      reportBrokerCommunicationError();
+      reportCommunicationError();
       Logger.Info("[MQTT] Retrying connection in " + String(MQTT_BROKER_RECONNECT_INTERVAL_MS) + " ms");
       return;
     }
@@ -237,7 +237,7 @@ namespace MqttBroker
       Logger.Error("[MQTT] Failed publishing telemetry after " + String(millis() - started) +
         " ms; closing connection");
       brokerClient.stop();
-      reportBrokerCommunicationError();
+      reportCommunicationError();
       return 0;
     }
     clearCommunicationErrors();
