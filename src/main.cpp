@@ -1,48 +1,13 @@
-// Sensors
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <cstdlib>
+#include <string.h>
+#include <time.h>
 #include <vector>
-// Sensors implementations
-#include "sensors/DHT22Sensor.h"
-#include "sensors/TMP36Sensor.h"
-#include "sensors/DS18B20Sensor.h"
-#include "sensors/BH1750FVISensor.h"
-#include "sensors/MotionSensor.h"
-// Display
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define DISPLAY_TEXT_SIZE 1
 
 #include "configs/pins.h"
+#include "configs/iot_configs.h"
 
-#ifdef USE_DISPLAY
-  #ifdef SH1106
-    #define DISPLAY_ROW_COUNT 8
-    #define SCREEN_HEIGHT 64
-    #include <Adafruit_SH110X.h>
-    Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-  #else
-    #define DISPLAY_ROW_COUNT 4
-    #define SCREEN_HEIGHT 32
-    #include <Adafruit_SSD1306.h>
-    Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-  #endif
-#endif
-
-#define DEBUG 0
-// RUUVI
-
-#define RUUVI_SCAN_TIME 20000 // RUUVI SCAN TIME IN MS
-#ifdef RUUVI_MAC
-  #include <NimBLEDevice.h>
-  #include <NimBLEAdvertisedDevice.h>
-  #include "sensors/RuuviTagScanner.h"
-#endif
-
-
-#include "configs/iot_configs.h" // Place DeviceId / IOT HUB settings + WIFI settings in this file
 #ifdef USE_MQQT_BROKER
   #undef USE_IOT_HUB
   #undef USE_HTTP_API
@@ -59,16 +24,78 @@
 #elif !defined(USE_IOT_HUB) && !defined(USE_HTTP_API)
   #error "Define USE_IOT_HUB, USE_HTTP_API, or USE_MQQT_BROKER in src/configs/iot_configs.h"
 #endif
-// Commands from IOT HUB
-#define CMD_REBOOT "REBOOT"
-// Loop definitions
+
+#define CONFIG_FREERTOS_NUMBER_OF_CORES 1
+#include "esp_task_wdt.h"
+#include "esp_system.h"
+#include <WiFi.h>
+
+#include "SerialLogger.h"
+#include "sensors/BH1750FVISensor.h"
+#include "sensors/DS18B20Sensor.h"
+#include "sensors/DHT22Sensor.h"
+#include "sensors/MotionSensor.h"
+#include "sensors/TMP36Sensor.h"
+
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#ifdef USE_DISPLAY
+  #ifdef SH1106
+    #include <Adafruit_SH110X.h>
+  #else
+    #include <Adafruit_SSD1306.h>
+  #endif
+#endif
+
+#ifdef RUUVI_MAC
+  #include <NimBLEDevice.h>
+  #include <NimBLEAdvertisedDevice.h>
+  #include "sensors/RuuviTagScanner.h"
+#endif
+
+#ifdef USE_IOT_HUB
+  #include <mqtt_client.h>
+  #include <az_core.h>
+  #include <az_iot.h>
+  #include <azure_ca.h>
+  #include "AzIoTSasToken.h"
+#endif
+
+#ifdef USE_MQQT_BROKER
+  #include <ArduinoMqttClient.h>
+#endif
+
+#ifdef USE_HTTP_API
+  #include <HTTPClient.h>
+#endif
+
+#if defined(USE_HTTP_API) || (defined(USE_MQQT_BROKER) && MQTT_BROKER_USE_TLS)
+  #include <WiFiClientSecure.h>
+#endif
+
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define DISPLAY_TEXT_SIZE 1
+
+#ifdef USE_DISPLAY
+  #ifdef SH1106
+    #define DISPLAY_ROW_COUNT 8
+    #define SCREEN_HEIGHT 64
+    Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+  #else
+    #define DISPLAY_ROW_COUNT 4
+    #define SCREEN_HEIGHT 32
+    Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+  #endif
+#endif
+
+#define DEBUG 0
+#define RUUVI_SCAN_TIME 20000 // RUUVI SCAN TIME IN MS
+
 // MEASURE_LOOP_COUNT * MEASURE_LIMIT*LOOP_WAIT = Send Interval in ms
 #define LOOP_WAIT 100
-#define MEASURE_LOOP_COUNT  40 
+#define MEASURE_LOOP_COUNT  40
 #define FIRST_MESSAGE_MILLIS 5000
-// Message settings
 #define SUCCESS_LIMIT 3
-
 #define MEASURE_LIMIT 30
 
 #ifdef USE_IOT_HUB
@@ -76,75 +103,15 @@
 #else
   #define COMMUNICATION_ERROR_LIMIT 5 // Causes boot in case sending measurements fails five times in a row
 #endif
-// Polling for attributes
-unsigned long lastAttributesReadMillis = 0;
 
 #define MEASURE_START_LOOP_LIMIT 6
 #define MOTION_DETECTION_SHUTDOWN_DELAY_MS 45000 // Set to 0 if controlled by sensor
 
 // https://iotassistant.io/esp32/fixing-error-hardware-wdt-arduino-esp32/
 #define WDT_TIMEOUT 15000 // 15 s
-#define CONFIG_FREERTOS_NUMBER_OF_CORES 1 
-
-#include "esp_task_wdt.h"
-#include "esp_system.h"
-// C99 libraries
-#include <cstdlib>
-#include <string.h>
-#include <time.h>
-
-// WiFi connection
-#include <WiFi.h>
-// Libraries for MQTT client
-#ifdef USE_IOT_HUB
-  #include <mqtt_client.h>
-  // Azure IoT SDK for C includes
-  #include <az_core.h>
-  #include <az_iot.h>
-  #include <azure_ca.h>
-  // Additional sample headers
-  #include "AzIoTSasToken.h"
-#endif
-
-#ifdef USE_HTTP_API
-  #include <HTTPClient.h>
-  #include <WiFiClientSecure.h>
-  #define ATTRIBUTE_READ_INTERVAL_MS 60000
-  #define HTTP_TIMEOUT_MS 8000
-#endif
-
-#ifdef USE_MQQT_BROKER
-  #include <ArduinoMqttClient.h>
-  #if MQTT_BROKER_USE_TLS
-    #include <WiFiClientSecure.h>
-    static WiFiClientSecure brokerTransport;
-  #else
-    static WiFiClient brokerTransport;
-  #endif
-  static MqttClient brokerClient(brokerTransport);
-  static String brokerMeasurementTopic = MQTT_BROKER_MEASUREMENTS_TOPIC;
-  static String brokerCommandTopic = MQTT_BROKER_COMMANDS_TOPIC;
-  #define MQTT_BROKER_TIMEOUT_MS 3000
-  #define MQTT_BROKER_RECONNECT_INTERVAL_MS 5000
-  static unsigned long lastBrokerConnectionAttempt = 0;
-  static bool brokerConnectionAttempted = false;
-  static bool brokerWasConnected = false;
-  static unsigned long brokerConnectionAttempts = 0;
-  static unsigned long lastBrokerStatusLog = 0;
-#endif
-
-#include "SerialLogger.h"
-
-// When developing for your own Arduino-based platform,
-// please follow the format '(ard;<platform>)'.
-#define AZURE_SDK_CLIENT_USER_AGENT "c%2F" AZ_SDK_VERSION_STRING "(ard;esp32)"
 
 // Utility macros and defines
-#define sizeofarray(a) (sizeof(a) / sizeof(a[0]))
 #define NTP_SERVERS "pool.ntp.org", "time.nist.gov"
-#define MQTT_QOS1 1
-#define DO_NOT_RETAIN_MSG 0
-#define SAS_TOKEN_DURATION_IN_MINUTES 60
 #define UNIX_TIME_NOV_13_2017 1510592825
 
 #define PST_TIME_ZONE -8
@@ -166,29 +133,6 @@ enum class MeasurementTypes : int {
 static const char* ssid = IOT_CONFIG_WIFI_SSID;
 static const char* password = IOT_CONFIG_WIFI_PASSWORD;
 
-#ifdef USE_IOT_HUB
-  static const char* host = IOT_CONFIG_IOTHUB_FQDN;
-  static const char* mqtt_broker_uri = "mqtts://" IOT_CONFIG_IOTHUB_FQDN;
-  static const char* device_id = IOT_CONFIG_DEVICE_ID;
-  static const int mqtt_port = AZ_IOT_DEFAULT_MQTT_CONNECT_PORT;
-
-  // Memory allocated for the sample's variables and structures.
-  static esp_mqtt_client_handle_t mqtt_client;
-  static az_iot_hub_client client;
-
-  static char mqtt_client_id[256]; // Changed
-  static char mqtt_username[256];  // Changed
-  static char mqtt_password[200];
-#endif
-static uint8_t sas_signature_buffer[256];
-
-
-#ifdef USE_HTTP_API
-  static const char* api_endpoint_url = API_ENDPOINT_URL;
-  static const char* api_attributes_url = API_ATTRIBUTES_URL;
-#endif
-
-static char telemetry_topic[128];
 static String telemetry_payload = "{}";
 
 // Status variables
@@ -204,8 +148,6 @@ static unsigned long loopCount = 0;
 static unsigned long lastLoopCount = 0;
 int lastMotionStatus = 0;
 int deviceStatus = 0; // Current status
-int lastDeviceStatus = 0; // Last status
-unsigned long indicationStatusSet = 0;
 
 MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
@@ -218,20 +160,7 @@ MotionSensor* motionSensor;
   std::vector<RuuviTagSensor*> ruuviSensors;
 #endif
 
-#define INCOMING_DATA_BUFFER_SIZE 512
-static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
-
 // Auxiliary functions
-
-#ifdef USE_IOT_HUB
-  #ifndef IOT_CONFIG_USE_X509_CERT
-  static AzIoTSasToken sasToken(
-    &client,
-    AZ_SPAN_FROM_STR(IOT_CONFIG_DEVICE_KEY),
-    AZ_SPAN_FROM_BUFFER(sas_signature_buffer),
-    AZ_SPAN_FROM_BUFFER(mqtt_password));
-  #endif  // IOT_CONFIG_USE_X509_CERT
-#endif
 
 static void connectToWiFi() {
   Logger.Info("Connecting to WIFI SSID " + String(ssid));
@@ -298,6 +227,11 @@ void setStatus(int statusToSet);
 static void printCommunicationError();
 
 #if defined(USE_IOT_HUB) || defined(USE_MQQT_BROKER)
+  #define CMD_REBOOT "REBOOT"
+  #define INCOMING_DATA_BUFFER_SIZE 512
+  #define MQTT_QOS1 1
+  static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
+
   bool parseMotionControlStatus(const String& message, MotionControlStatus& status);
   bool parseMotionControlDelay(const String& message, unsigned long& delayMs);
 
@@ -330,6 +264,36 @@ static void printCommunicationError();
 #endif
 
 #ifdef USE_IOT_HUB
+  // When developing for your own Arduino-based platform,
+  // please follow the format '(ard;<platform>)'.
+  #define AZURE_SDK_CLIENT_USER_AGENT "c%2F" AZ_SDK_VERSION_STRING "(ard;esp32)"
+  #define sizeofarray(a) (sizeof(a) / sizeof(a[0]))
+  #define DO_NOT_RETAIN_MSG 0
+  #define SAS_TOKEN_DURATION_IN_MINUTES 60
+
+  static const char* host = IOT_CONFIG_IOTHUB_FQDN;
+  static const char* mqtt_broker_uri = "mqtts://" IOT_CONFIG_IOTHUB_FQDN;
+  static const char* device_id = IOT_CONFIG_DEVICE_ID;
+  static const int mqtt_port = AZ_IOT_DEFAULT_MQTT_CONNECT_PORT;
+
+  // Memory allocated for the sample's variables and structures.
+  static esp_mqtt_client_handle_t mqtt_client;
+  static az_iot_hub_client client;
+
+  static char mqtt_client_id[256];
+  static char mqtt_username[256];
+  static char mqtt_password[200];
+
+  static char telemetry_topic[128];
+  #ifndef IOT_CONFIG_USE_X509_CERT
+    static uint8_t sas_signature_buffer[256];
+    static AzIoTSasToken sasToken(
+      &client,
+      AZ_SPAN_FROM_STR(IOT_CONFIG_DEVICE_KEY),
+      AZ_SPAN_FROM_BUFFER(sas_signature_buffer),
+      AZ_SPAN_FROM_BUFFER(mqtt_password));
+  #endif
+
   #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
   static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_t event_id, void* event_data) {
     (void)handler_args;
@@ -510,11 +474,56 @@ static void printCommunicationError();
       Logger.Info("MQTT client started");
       return 0;
     }
-  }  
+  }
 
+  static bool prepareIoTHubTelemetryTopic()
+  {
+    // Generate the topic for each publish so it can reflect the current properties.
+    if (az_result_failed(az_iot_hub_client_telemetry_get_publish_topic(
+          &client, NULL, telemetry_topic, sizeof(telemetry_topic), NULL))) {
+      Logger.Error("Failed az_iot_hub_client_telemetry_get_publish_topic");
+      return false;
+    }
+    return true;
+  }
+
+  static int publishTelemetryToIoTHub()
+  {
+    if (esp_mqtt_client_publish(
+          mqtt_client,
+          telemetry_topic,
+          (const char*)telemetry_payload.c_str(),
+          telemetry_payload.length(),
+          MQTT_QOS1,
+          DO_NOT_RETAIN_MSG)
+        == 0) {
+      Logger.Error("Failed publishing");
+      return 0;
+    } else {
+      Logger.Info("Message published successfully");
+      return 1;
+    }
+  }
 #endif
 
 #ifdef USE_MQQT_BROKER
+  #define MQTT_BROKER_TIMEOUT_MS 3000
+  #define MQTT_BROKER_RECONNECT_INTERVAL_MS 5000
+
+  #if MQTT_BROKER_USE_TLS
+    static WiFiClientSecure brokerTransport;
+  #else
+    static WiFiClient brokerTransport;
+  #endif
+  static MqttClient brokerClient(brokerTransport);
+  static String brokerMeasurementTopic = MQTT_BROKER_MEASUREMENTS_TOPIC;
+  static String brokerCommandTopic = MQTT_BROKER_COMMANDS_TOPIC;
+  static unsigned long lastBrokerConnectionAttempt = 0;
+  static bool brokerConnectionAttempted = false;
+  static bool brokerWasConnected = false;
+  static unsigned long brokerConnectionAttempts = 0;
+  static unsigned long lastBrokerStatusLog = 0;
+
   static void handleBrokerMessage(int messageSize)
   {
     Logger.Info("[MQTT] Message received: topic=" + brokerClient.messageTopic() +
@@ -671,6 +680,16 @@ static void printCommunicationError();
     setStatus(3);
     Logger.Info("[MQTT] Subscription confirmed: topic=" + brokerCommandTopic +
       ", granted QoS=" + String(brokerClient.subscribeQoS()));
+  }
+
+  static bool checkBrokerTelemetryConnection()
+  {
+    if (!brokerClient.connected())
+    {
+      Logger.Error("[MQTT] Cannot send telemetry while disconnected");
+      return false;
+    }
+    return true;
   }
 
   static int publishTelemetryToBroker()
@@ -945,6 +964,15 @@ static int generateTelemetryPayload(bool sendEmpty = false)
 }
 
 #ifdef USE_HTTP_API
+  #define ATTRIBUTE_READ_INTERVAL_MS 60000
+  #define HTTP_TIMEOUT_MS 8000
+
+  static const char* api_endpoint_url = API_ENDPOINT_URL;
+  static const char* api_attributes_url = API_ATTRIBUTES_URL;
+  static unsigned long lastAttributesReadMillis = 0;
+  static int lastDeviceStatus = 0;
+  static unsigned long indicationStatusSet = 0;
+
   // Sends the JSON telemetry payload to the API endpoint.
   // Returns 1 on success (HTTP 2xx), 0 otherwise.
   static int postTelemetryToApi() 
@@ -989,6 +1017,21 @@ static int generateTelemetryPayload(bool sendEmpty = false)
       Logger.Error("[HTTP] Unable to connect to API endpoint");
     }
     return result;
+  }
+
+  static int publishTelemetryToHttpApi()
+  {
+    int postResult = postTelemetryToApi();
+    if (postResult)
+    {
+      communicationErrorCount = 0;
+    } else
+    {
+      setStatus(0);
+      communicationErrorCount++;
+      printCommunicationError();
+    }
+    return postResult;
   }
 
   static int readAttributesFromApi(int& motionControlStatus, unsigned long& onDelayMs) {
@@ -1108,65 +1151,34 @@ static int generateTelemetryPayload(bool sendEmpty = false)
 #endif
 
 static int sendTelemetry(bool sendEmpty = false) {
-  Logger.Info("Sending telemetry ...");   
+  Logger.Info("Sending telemetry ...");
 
   #ifdef USE_MQQT_BROKER
-    if (!brokerClient.connected())
+    if (!checkBrokerTelemetryConnection())
     {
-      Logger.Error("[MQTT] Cannot send telemetry while disconnected");
       return 0;
     }
   #endif
-
   #ifdef USE_IOT_HUB
-    // The topic could be obtained just once during setup,
-    // however if properties are used the topic need to be generated again to reflect the
-    // current values of the properties.
-    if (az_result_failed(az_iot_hub_client_telemetry_get_publish_topic(
-          &client, NULL, telemetry_topic, sizeof(telemetry_topic), NULL))) {
-      Logger.Error("Failed az_iot_hub_client_telemetry_get_publish_topic");
+    if (!prepareIoTHubTelemetryTopic())
+    {
       return 0;
     }
   #endif
 
-  if(!generateTelemetryPayload(sendEmpty)) 
+  if (!generateTelemetryPayload(sendEmpty))
   {
     Logger.Error("Failed to get sensor data");
     return 0;
   }
 
   #ifdef USE_IOT_HUB
-    if (esp_mqtt_client_publish(
-          mqtt_client,
-          telemetry_topic,
-          (const char*)telemetry_payload.c_str(),
-          telemetry_payload.length(),
-          MQTT_QOS1,
-          DO_NOT_RETAIN_MSG)
-        == 0) {
-      Logger.Error("Failed publishing");
-      return 0;
-    } else {
-      Logger.Info("Message published successfully");
-      return 1;
-    }  
-
+    return publishTelemetryToIoTHub();
   #elif defined(USE_MQQT_BROKER)
     return publishTelemetryToBroker();
   #elif defined(USE_HTTP_API)
-    int postResult = postTelemetryToApi();
-    if (postResult)
-    {
-      communicationErrorCount = 0;
-    } else 
-    {
-      setStatus(0);
-      communicationErrorCount++;  
-      printCommunicationError();
-    }
-    return postResult;
+    return publishTelemetryToHttpApi();
   #endif
-
 }
 
 void setStatus(int statusToSet) {
