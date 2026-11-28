@@ -401,9 +401,6 @@ static void printCommunicationError();
   #endif  // ESP_ARDUINO_VERSION_MAJOR
   }
 
-#endif
-
-#ifdef USE_IOT_HUB
   static void initializeIoTHubClient() 
   {
     az_iot_hub_client_options options = az_iot_hub_client_options_default();
@@ -1067,7 +1064,47 @@ static int generateTelemetryPayload(bool sendEmpty = false)
     }
 
     return result;
+  }
+
+  static void serviceHttpAttributes()
+  {
+    if (millis() - lastAttributesReadMillis > ATTRIBUTE_READ_INTERVAL_MS)
+    {
+      lastAttributesReadMillis = millis();
+      Logger.Info("Trying to read attributes");
+      int newStatus;
+      unsigned long newOnDelayMs;
+
+      if (!readAttributesFromApi(newStatus, newOnDelayMs))
+      {
+        Logger.Error("[ATTR] Failed to read attributes");
+        return;
+      }
+
+      Logger.Info("[ATTR] Attributes updated.");
+      Logger.Info("Status: " + String(newStatus));
+      Logger.Info("Delays: " + String(newOnDelayMs));
+      #ifdef MOTIONSENSOR_IN_PINS
+        bool statusChanged = motionSensor->setMotionControlStatus(static_cast<MotionControlStatus>(newStatus));
+        bool delayChanged = motionSensor->setMotionControlDelay(newOnDelayMs);
+        if (statusChanged || delayChanged)
+        {
+          lastDeviceStatus = deviceStatus;
+          indicationStatusSet = millis();
+          setStatus(4);
+        }
+      #endif
+    } else if (indicationStatusSet > 0 && millis() - indicationStatusSet > 5000)
+    {
+      Logger.Info("Resetting status indicator");
+      indicationStatusSet = 0;
+      if (deviceStatus == 4)
+      {
+        setStatus(lastDeviceStatus);
+      }
+    }
   }  
+
 #endif
 
 static int sendTelemetry(bool sendEmpty = false) {
@@ -1238,6 +1275,62 @@ static void printCommunicationError()
   #endif
 }
 
+#ifdef RUUVI_MAC
+  static void setupRuuviSensors()
+  {
+    RuuviTagSensor* ruuviSensor = new RuuviTagSensor(RUUVI_MAC, RUUVI_SENSORID);
+    ruuviSensors.push_back(ruuviSensor);
+    sensors.push_back(ruuviSensor);
+    #ifdef RUUVI_MAC_2
+      RuuviTagSensor* ruuviSensor2 = new RuuviTagSensor(RUUVI_MAC_2, RUUVI_SENSORID_2);
+      ruuviSensors.push_back(ruuviSensor2);
+      sensors.push_back(ruuviSensor2);
+    #endif
+    scanner = new RuuviTagScanner(ruuviSensors);
+  }
+#endif
+
+#ifdef RUUVI_MAC
+  void initRuuvi()
+  {
+    Logger.Info("Free heap (before init) (bytes): " + String(ESP.getFreeHeap()));
+    esp_task_wdt_reset();
+    NimBLEDevice::init("ESP32-Ruuvi");
+    pBLEScan = BLEDevice::getScan();
+    pBLEScan->setScanCallbacks(scanner, false);
+    pBLEScan->setActiveScan(false);
+    pBLEScan->setMaxResults(0); // Using just the callback
+    pBLEScan->setInterval(100);
+    pBLEScan->setWindow(100);
+    Logger.Info("Free heap (after init) (bytes): " + String(ESP.getFreeHeap()));
+  }
+
+  void readRuuvi()
+  {
+    esp_task_wdt_reset();
+    Logger.Info("Starting RUUVI SCAN");
+    pBLEScan->start(RUUVI_SCAN_TIME, false, true);
+    esp_task_wdt_reset();
+    Logger.Info("RUUVI SCAN DONE");
+    Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());
+  }
+
+  static void serviceRuuvi()
+  {
+    if (loopCount == 20 && !hasInitedRuuvi)
+    {
+      initRuuvi();
+      hasInitedRuuvi = true;
+    } else if (measureCount != lastRuuviMeasureCount && measureCount > 0 && measureCount % 20 == 0)
+    {
+      readRuuvi();
+      lastRuuviMeasureCount = measureCount;
+    }
+  }
+#endif
+
+
+
 // Arduino setup and loop main functions.
 void setup() 
 {
@@ -1276,16 +1369,8 @@ void setup()
   #endif 
 
   #ifdef RUUVI_MAC
-    RuuviTagSensor* ruuviSensor = new RuuviTagSensor(RUUVI_MAC, RUUVI_SENSORID);
-    ruuviSensors.push_back(ruuviSensor);
-    sensors.push_back(ruuviSensor);
-    #ifdef RUUVI_MAC_2
-      RuuviTagSensor* ruuviSensor2 = new RuuviTagSensor(RUUVI_MAC_2, RUUVI_SENSORID_2);
-      ruuviSensors.push_back(ruuviSensor2);
-      sensors.push_back(ruuviSensor2);
-    #endif
-    scanner = new RuuviTagScanner(ruuviSensors);
-  #endif 
+    setupRuuviSensors();
+  #endif
 
   for (Sensor* sensor : sensors)
   {
@@ -1331,32 +1416,6 @@ void setup()
   establishConnection();
   Serial.printf("Free heap (after connection): %u bytes\n", ESP.getFreeHeap());
 }
-
-#ifdef RUUVI_MAC
-  void initRuuvi()
-  {
-    Logger.Info("Free heap (before init) (bytes): " + String(ESP.getFreeHeap()));
-    esp_task_wdt_reset();
-    NimBLEDevice::init("ESP32-Ruuvi");
-    pBLEScan = BLEDevice::getScan();
-    pBLEScan->setScanCallbacks(scanner, false);
-    pBLEScan->setActiveScan(false);
-    pBLEScan->setMaxResults(0); // Using just the callback
-    pBLEScan->setInterval(100);
-    pBLEScan->setWindow(100);
-    Logger.Info("Free heap (after init) (bytes): " + String(ESP.getFreeHeap()));
-  }
-
-  void readRuuvi()
-  {
-    esp_task_wdt_reset();
-    Logger.Info("Starting RUUVI SCAN");
-    pBLEScan->start(RUUVI_SCAN_TIME, false, true); 
-    esp_task_wdt_reset();
-    Logger.Info("RUUVI SCAN DONE");
-    Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());  
-  }
-#endif
 
 void loop() {
   #ifdef USE_MQQT_BROKER
@@ -1442,58 +1501,11 @@ void loop() {
         successCount = 0;
       }
     }
-#ifdef USE_HTTP_API
-    if (millis() - lastAttributesReadMillis > ATTRIBUTE_READ_INTERVAL_MS)
-    {
-      lastAttributesReadMillis = millis();
-      Logger.Info("Trying to read attributes");
-      int newStatus;
-      unsigned long newOnDelayMs;
-
-      if (readAttributesFromApi(newStatus, newOnDelayMs))
-      {
-        Logger.Info("[ATTR] Attributes updated.");
-        Logger.Info("Status: " + String(newStatus));
-        Logger.Info("Delays: " + String(newOnDelayMs));
-        #ifdef MOTIONSENSOR_IN_PINS
-          bool statusChanged = motionSensor->setMotionControlStatus(static_cast<MotionControlStatus>(newStatus));
-          bool delayChanged  = motionSensor->setMotionControlDelay(newOnDelayMs);
-          if (statusChanged || delayChanged) 
-          {
-            lastDeviceStatus = deviceStatus;
-            indicationStatusSet = millis();
-            setStatus(4);
-          }          
-        #endif
-      }
-      else
-      {
-        Logger.Error("[ATTR] Failed to read attributes");
-      }
-    } else if (indicationStatusSet > 0) 
-    {
-      // RESET INDICATION STATUS
-      if (millis() - indicationStatusSet > 5000 )
-      {
-        Logger.Info("Resetting status indicator");
-        indicationStatusSet = 0;
-        if (deviceStatus == 4) 
-        {
-          setStatus(lastDeviceStatus);
-        }
-      }
-    }
-#endif
+    #ifdef USE_HTTP_API
+      serviceHttpAttributes();
+    #endif
     #ifdef RUUVI_MAC
-      if (loopCount == 20 && !hasInitedRuuvi)
-      {
-        initRuuvi();
-        hasInitedRuuvi = true;
-      } else if (measureCount != lastRuuviMeasureCount && measureCount > 0 && measureCount % 20 == 0)
-      {
-        readRuuvi();
-        lastRuuviMeasureCount = measureCount;
-      }
+      serviceRuuvi();
     #endif
   } else {
     if (millis() > 4000) 
