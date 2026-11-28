@@ -1,150 +1,53 @@
-// Sensors
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <atomic>
+#include <cstdlib>
+#include <string.h>
+#include <time.h>
 #include <vector>
-// Sensors implementations
-#include "sensors/DHT22Sensor.h"
-#include "sensors/TMP36Sensor.h"
-#include "sensors/DS18B20Sensor.h"
+
+#include "Display.h"
+#include "transports/TransportConfig.h"
+
+#define CONFIG_FREERTOS_NUMBER_OF_CORES 1
+#include "esp_task_wdt.h"
+#include "esp_system.h"
+#include <WiFi.h>
+
+#include "SerialLogger.h"
 #include "sensors/BH1750FVISensor.h"
+#include "sensors/DS18B20Sensor.h"
+#include "sensors/DHT22Sensor.h"
 #include "sensors/MotionSensor.h"
-// Display
-#include <Wire.h>
-#include <Adafruit_GFX.h>
+#include "sensors/TMP36Sensor.h"
 
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define DISPLAY_TEXT_SIZE 1
-
-#include "configs/pins.h"
-
-#ifdef USE_DISPLAY
-  #ifdef SH1106
-    #define DISPLAY_ROW_COUNT 8
-    #define SCREEN_HEIGHT 64
-    #include <Adafruit_SH110X.h>
-    Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-  #else
-    #define DISPLAY_ROW_COUNT 4
-    #define SCREEN_HEIGHT 32
-    #include <Adafruit_SSD1306.h>
-    Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-  #endif
-#endif
-
-#define DEBUG 0
-// RUUVI
-
-#define RUUVI_SCAN_TIME 20000 // RUUVI SCAN TIME IN MS
 #ifdef RUUVI_MAC
-  #include <NimBLEDevice.h>
-  #include <NimBLEAdvertisedDevice.h>
   #include "sensors/RuuviTagScanner.h"
 #endif
 
+#include "transports/HttpApi.h"
+#include "transports/IoTHub.h"
+#include "transports/MqttBroker.h"
+#include "transports/TransportEvents.h"
 
-#include "configs/iot_configs.h" // Place DeviceId / IOT HUB settings + WIFI settings in this file
-#ifdef USE_MQQT_BROKER
-  #undef USE_IOT_HUB
-  #undef USE_HTTP_API
-  #ifndef MQTT_BROKER_USE_TLS
-    #define MQTT_BROKER_USE_TLS 1
-  #endif
-  #ifndef MQTT_BROKER_PORT
-    #if MQTT_BROKER_USE_TLS
-      #define MQTT_BROKER_PORT 8883
-    #else
-      #define MQTT_BROKER_PORT 1883
-    #endif
-  #endif
-#elif !defined(USE_IOT_HUB) && !defined(USE_HTTP_API)
-  #error "Define USE_IOT_HUB, USE_HTTP_API, or USE_MQQT_BROKER in src/configs/iot_configs.h"
-#endif
-// Commands from IOT HUB
-#define CMD_REBOOT "REBOOT"
-// Loop definitions
+#define DEBUG 0
+#define RUUVI_SCAN_TIME 20000 // RUUVI SCAN TIME IN MS
+
 // MEASURE_LOOP_COUNT * MEASURE_LIMIT*LOOP_WAIT = Send Interval in ms
 #define LOOP_WAIT 100
-#define MEASURE_LOOP_COUNT  40 
+#define MEASURE_LOOP_COUNT  40
 #define FIRST_MESSAGE_MILLIS 5000
-// Message settings
 #define SUCCESS_LIMIT 3
-
 #define MEASURE_LIMIT 30
-
-#ifdef USE_IOT_HUB
-  #define COMMUNICATION_ERROR_LIMIT 12
-#else
-  #define COMMUNICATION_ERROR_LIMIT 5 // Causes boot in case sending measurements fails five times in a row
-#endif
-// Polling for attributes
-unsigned long lastAttributesReadMillis = 0;
 
 #define MEASURE_START_LOOP_LIMIT 6
 #define MOTION_DETECTION_SHUTDOWN_DELAY_MS 45000 // Set to 0 if controlled by sensor
 
 // https://iotassistant.io/esp32/fixing-error-hardware-wdt-arduino-esp32/
 #define WDT_TIMEOUT 15000 // 15 s
-#define CONFIG_FREERTOS_NUMBER_OF_CORES 1 
-
-#include "esp_task_wdt.h"
-#include "esp_system.h"
-// C99 libraries
-#include <cstdlib>
-#include <string.h>
-#include <time.h>
-
-// WiFi connection
-#include <WiFi.h>
-// Libraries for MQTT client
-#ifdef USE_IOT_HUB
-  #include <mqtt_client.h>
-  // Azure IoT SDK for C includes
-  #include <az_core.h>
-  #include <az_iot.h>
-  #include <azure_ca.h>
-  // Additional sample headers
-  #include "AzIoTSasToken.h"
-#endif
-
-#ifdef USE_HTTP_API
-  #include <HTTPClient.h>
-  #include <WiFiClientSecure.h>
-  #define ATTRIBUTE_READ_INTERVAL_MS 60000
-  #define HTTP_TIMEOUT_MS 8000
-#endif
-
-#ifdef USE_MQQT_BROKER
-  #include <ArduinoMqttClient.h>
-  #if MQTT_BROKER_USE_TLS
-    #include <WiFiClientSecure.h>
-    static WiFiClientSecure brokerTransport;
-  #else
-    static WiFiClient brokerTransport;
-  #endif
-  static MqttClient brokerClient(brokerTransport);
-  static String brokerMeasurementTopic = MQTT_BROKER_MEASUREMENTS_TOPIC;
-  static String brokerCommandTopic = MQTT_BROKER_COMMANDS_TOPIC;
-  #define MQTT_BROKER_TIMEOUT_MS 3000
-  #define MQTT_BROKER_RECONNECT_INTERVAL_MS 5000
-  static unsigned long lastBrokerConnectionAttempt = 0;
-  static bool brokerConnectionAttempted = false;
-  static bool brokerWasConnected = false;
-  static unsigned long brokerConnectionAttempts = 0;
-  static unsigned long lastBrokerStatusLog = 0;
-#endif
-
-#include "SerialLogger.h"
-
-// When developing for your own Arduino-based platform,
-// please follow the format '(ard;<platform>)'.
-#define AZURE_SDK_CLIENT_USER_AGENT "c%2F" AZ_SDK_VERSION_STRING "(ard;esp32)"
 
 // Utility macros and defines
-#define sizeofarray(a) (sizeof(a) / sizeof(a[0]))
 #define NTP_SERVERS "pool.ntp.org", "time.nist.gov"
-#define MQTT_QOS1 1
-#define DO_NOT_RETAIN_MSG 0
-#define SAS_TOKEN_DURATION_IN_MINUTES 60
 #define UNIX_TIME_NOV_13_2017 1510592825
 
 #define PST_TIME_ZONE -8
@@ -166,33 +69,10 @@ enum class MeasurementTypes : int {
 static const char* ssid = IOT_CONFIG_WIFI_SSID;
 static const char* password = IOT_CONFIG_WIFI_PASSWORD;
 
-#ifdef USE_IOT_HUB
-  static const char* host = IOT_CONFIG_IOTHUB_FQDN;
-  static const char* mqtt_broker_uri = "mqtts://" IOT_CONFIG_IOTHUB_FQDN;
-  static const char* device_id = IOT_CONFIG_DEVICE_ID;
-  static const int mqtt_port = AZ_IOT_DEFAULT_MQTT_CONNECT_PORT;
-
-  // Memory allocated for the sample's variables and structures.
-  static esp_mqtt_client_handle_t mqtt_client;
-  static az_iot_hub_client client;
-
-  static char mqtt_client_id[256]; // Changed
-  static char mqtt_username[256];  // Changed
-  static char mqtt_password[200];
-#endif
-static uint8_t sas_signature_buffer[256];
-
-
-#ifdef USE_HTTP_API
-  static const char* api_endpoint_url = API_ENDPOINT_URL;
-  static const char* api_attributes_url = API_ATTRIBUTES_URL;
-#endif
-
-static char telemetry_topic[128];
-static String telemetry_payload = "{}";
+static String telemetry_payload = "{}"; // JSON payload for telemetry data
 
 // Status variables
-int communicationErrorCount = 0;
+static std::atomic<int> communicationErrorCount{0};
 int successCount = 0;
 unsigned int sentMessageCount = 0;
 int inited = 0;
@@ -204,8 +84,6 @@ static unsigned long loopCount = 0;
 static unsigned long lastLoopCount = 0;
 int lastMotionStatus = 0;
 int deviceStatus = 0; // Current status
-int lastDeviceStatus = 0; // Last status
-unsigned long indicationStatusSet = 0;
 
 MotionControlStatus motionControlStatus = MotionControl;
 // Sensors
@@ -218,20 +96,7 @@ MotionSensor* motionSensor;
   std::vector<RuuviTagSensor*> ruuviSensors;
 #endif
 
-#define INCOMING_DATA_BUFFER_SIZE 512
-static char incoming_data[INCOMING_DATA_BUFFER_SIZE];
-
 // Auxiliary functions
-
-#ifdef USE_IOT_HUB
-  #ifndef IOT_CONFIG_USE_X509_CERT
-  static AzIoTSasToken sasToken(
-    &client,
-    AZ_SPAN_FROM_STR(IOT_CONFIG_DEVICE_KEY),
-    AZ_SPAN_FROM_BUFFER(sas_signature_buffer),
-    AZ_SPAN_FROM_BUFFER(mqtt_password));
-  #endif  // IOT_CONFIG_USE_X509_CERT
-#endif
 
 static void connectToWiFi() {
   Logger.Info("Connecting to WIFI SSID " + String(ssid));
@@ -283,34 +148,77 @@ static String generateIdentifier(unsigned long uptime, unsigned long messageOrde
   return result;
 }
 
-void receivedCallback(char* topic, byte* payload, unsigned int length) {
-  Logger.Info("Received [");
-  Logger.Info(topic);
-  Logger.Info("]: ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
+void setStatus(int statusToSet) {
+
+  deviceStatus = statusToSet;
+  if (statusToSet == 0) {
+    digitalWrite(REDLEDPIN, HIGH);
+    digitalWrite(GREENLEDPIN, LOW);
+    digitalWrite(YELLOWLEDPIN, LOW);
+  } else if (statusToSet == 1) {
+    digitalWrite(REDLEDPIN, LOW);
+    digitalWrite(GREENLEDPIN, HIGH);
+    digitalWrite(YELLOWLEDPIN, LOW);
+  } else if (statusToSet == 2) {
+    digitalWrite(GREENLEDPIN, LOW);
+    digitalWrite(REDLEDPIN, LOW);
+    digitalWrite(YELLOWLEDPIN, LOW);
+  } else if (statusToSet == 3)
+  {
+    digitalWrite(GREENLEDPIN, LOW);
+    digitalWrite(REDLEDPIN, LOW);
+    digitalWrite(YELLOWLEDPIN, HIGH);
+  } else if (statusToSet == 4) // Indicate read attributes
+  {
+    digitalWrite(GREENLEDPIN, HIGH);
+    digitalWrite(REDLEDPIN, LOW);
+    digitalWrite(YELLOWLEDPIN, HIGH);
   }
-  Serial.println("");
 }
 
+static void printCommunicationError()
+{
+  Logger.Error("COMMUNICATION ERROR");
+  Logger.Error("Count: " + String(communicationErrorCount.load()));
 
-void setStatus(int statusToSet);
-static void printCommunicationError();
+  #ifdef USE_DISPLAY
+    showCommunicationError(communicationErrorCount.load());
+  #endif
+}
+
+void recordCommunicationError()
+{
+  ++communicationErrorCount;
+}
+
+void clearCommunicationErrors()
+{
+  communicationErrorCount = 0;
+}
+
+void reportCommunicationError()
+{
+  recordCommunicationError();
+  setStatus(0);
+  printCommunicationError();
+}
 
 #if defined(USE_IOT_HUB) || defined(USE_MQQT_BROKER)
+  #define CMD_REBOOT "REBOOT"
+
   bool parseMotionControlStatus(const String& message, MotionControlStatus& status);
   bool parseMotionControlDelay(const String& message, unsigned long& delayMs);
 
-  void handleCommand()
+  void handleCommand(const char* command)
   {
-    if (strcmp(incoming_data, CMD_REBOOT) == 0) 
+    if (strcmp(command, CMD_REBOOT) == 0)
     {
       Logger.Info("Reboot command received. Rebooting after 2 s...");
       delay(2000);
       ESP.restart();
     }
     MotionControlStatus status;
-    if (parseMotionControlStatus(incoming_data, status)) 
+    if (parseMotionControlStatus(command, status))
     {
       Logger.Info("Setting motion control status to: " + String(status));
       #ifdef MOTIONSENSOR_IN_PINS
@@ -318,7 +226,7 @@ static void printCommunicationError();
       #endif
     }
     unsigned long delay;
-    if (parseMotionControlDelay(incoming_data, delay))
+    if (parseMotionControlDelay(command, delay))
     {
       Logger.Info("Setting motion control delays");
       #ifdef MOTIONSENSOR_IN_PINS
@@ -326,402 +234,6 @@ static void printCommunicationError();
         motionSensor->setMotionControlDelay(delay);
       #endif
     }
-  }
-#endif
-
-#ifdef USE_IOT_HUB
-  #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
-  static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_t event_id, void* event_data) {
-    (void)handler_args;
-    (void)base;
-    (void)event_id;
-
-    esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
-  #else   // ESP_ARDUINO_VERSION_MAJOR
-  static esp_err_t mqtt_event_handler(esp_mqtt_event_handle_t event) {
-  #endif  // ESP_ARDUINO_VERSION_MAJOR
-    switch (event->event_id) {
-      int i, r;
-
-      case MQTT_EVENT_ERROR:
-        communicationErrorCount++;
-        Logger.Info("MQTT event MQTT_EVENT_ERROR");
-        break;
-      case MQTT_EVENT_CONNECTED:
-        Logger.Info("MQTT event MQTT_EVENT_CONNECTED");
-        communicationErrorCount = 0;
-        r = esp_mqtt_client_subscribe(mqtt_client, AZ_IOT_HUB_CLIENT_C2D_SUBSCRIBE_TOPIC, 1);
-        if (r == -1) {
-          Logger.Error("Could not subscribe for cloud-to-device messages.");
-        } else {
-          Logger.Info("Subscribed for cloud-to-device messages; message id:" + String(r));
-        }
-
-        break;
-      case MQTT_EVENT_DISCONNECTED:
-        communicationErrorCount++;
-        Logger.Info("MQTT event MQTT_EVENT_DISCONNECTED");
-        break;
-      case MQTT_EVENT_SUBSCRIBED:
-        Logger.Info("MQTT event MQTT_EVENT_SUBSCRIBED");
-        break;
-      case MQTT_EVENT_UNSUBSCRIBED:
-        Logger.Info("MQTT event MQTT_EVENT_UNSUBSCRIBED");
-        break;
-      case MQTT_EVENT_PUBLISHED:
-        Logger.Info("MQTT event MQTT_EVENT_PUBLISHED");
-        break;
-      case MQTT_EVENT_DATA:
-        Logger.Info("MQTT event MQTT_EVENT_DATA");
-
-        for (i = 0; i < (INCOMING_DATA_BUFFER_SIZE - 1) && i < event->topic_len; i++) {
-          incoming_data[i] = event->topic[i];
-        }
-        incoming_data[i] = '\0';
-        Logger.Info("Topic: " + String(incoming_data));
-
-        for (i = 0; i < (INCOMING_DATA_BUFFER_SIZE - 1) && i < event->data_len; i++) {
-          incoming_data[i] = event->data[i];
-        }
-        incoming_data[i] = '\0';
-        Logger.Info("Data: " + String(incoming_data));
-        handleCommand();
-        break;
-      case MQTT_EVENT_BEFORE_CONNECT:
-        Logger.Info("MQTT event MQTT_EVENT_BEFORE_CONNECT");
-        break;
-      default:
-        Logger.Error("MQTT event UNKNOWN");
-        break;
-    }
-
-  #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
-  #else   // ESP_ARDUINO_VERSION_MAJOR
-    return ESP_OK;
-  #endif  // ESP_ARDUINO_VERSION_MAJOR
-  }
-
-#endif
-
-#ifdef USE_IOT_HUB
-  static void initializeIoTHubClient() 
-  {
-    az_iot_hub_client_options options = az_iot_hub_client_options_default();
-    options.user_agent = AZ_SPAN_FROM_STR(AZURE_SDK_CLIENT_USER_AGENT);
-
-    if (az_result_failed(az_iot_hub_client_init(
-          &client,
-          az_span_create((uint8_t*)host, strlen(host)),
-          az_span_create((uint8_t*)device_id, strlen(device_id)),
-          &options))) {
-      Logger.Error("Failed initializing Azure IoT Hub client");
-      return;
-    }
-
-    size_t client_id_length;
-    if (az_result_failed(az_iot_hub_client_get_client_id(
-          &client, mqtt_client_id, sizeof(mqtt_client_id) - 1, &client_id_length))) {
-      Logger.Error("Failed getting client id");
-      return;
-    }
-
-    int result = az_result_failed(az_iot_hub_client_get_user_name(
-      &client, mqtt_username, sizeofarray(mqtt_username), NULL));
-
-    if (result) {
-      Logger.Error("Failed to get MQTT clientId, return code");
-      Logger.Error(String(result));
-      return;
-    }
-
-    Logger.Info("Client ID: " + String(mqtt_client_id));
-    Logger.Info("Username: " + String(mqtt_username));
-  }
-
-  static int initializeMqttClient() 
-  {
-  #ifndef IOT_CONFIG_USE_X509_CERT
-    if (sasToken.Generate(SAS_TOKEN_DURATION_IN_MINUTES) != 0) {
-      Logger.Error("Failed generating SAS token");
-      return 1;
-    }
-  #endif
-
-    esp_mqtt_client_config_t mqtt_config;
-    memset(&mqtt_config, 0, sizeof(mqtt_config));
-
-  #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
-    mqtt_config.broker.address.uri = mqtt_broker_uri;
-    mqtt_config.broker.address.port = mqtt_port;
-    mqtt_config.credentials.client_id = mqtt_client_id;
-    mqtt_config.credentials.username = mqtt_username;
-
-  #ifdef IOT_CONFIG_USE_X509_CERT
-    LogInfo("MQTT client using X509 Certificate authentication");
-    mqtt_config.credentials.authentication.certificate = IOT_CONFIG_DEVICE_CERT;
-    mqtt_config.credentials.authentication.certificate_len = (size_t)sizeof(IOT_CONFIG_DEVICE_CERT);
-    mqtt_config.credentials.authentication.key = IOT_CONFIG_DEVICE_CERT_PRIVATE_KEY;
-    mqtt_config.credentials.authentication.key_len = (size_t)sizeof(IOT_CONFIG_DEVICE_CERT_PRIVATE_KEY);
-  #else  // Using SAS key
-    mqtt_config.credentials.authentication.password = (const char*)az_span_ptr(sasToken.Get());
-  #endif
-
-    mqtt_config.session.keepalive = 30;
-    mqtt_config.session.disable_clean_session = 0;
-    mqtt_config.network.disable_auto_reconnect = false;
-    mqtt_config.broker.verification.certificate = (const char*)ca_pem;
-    mqtt_config.broker.verification.certificate_len = (size_t)ca_pem_len;
-  #else  // ESP_ARDUINO_VERSION_MAJOR
-    mqtt_config.uri = mqtt_broker_uri;
-    mqtt_config.port = mqtt_port;
-    mqtt_config.client_id = mqtt_client_id;
-    mqtt_config.username = mqtt_username;
-
-  #ifdef IOT_CONFIG_USE_X509_CERT
-    Logger.Info("MQTT client using X509 Certificate authentication");
-    mqtt_config.client_cert_pem = IOT_CONFIG_DEVICE_CERT;
-    mqtt_config.client_key_pem = IOT_CONFIG_DEVICE_CERT_PRIVATE_KEY;
-  #else  // Using SAS key
-    mqtt_config.password = (const char*)az_span_ptr(sasToken.Get());
-  #endif
-
-    mqtt_config.keepalive = 30;
-    mqtt_config.disable_clean_session = 0;
-    mqtt_config.disable_auto_reconnect = false;
-    mqtt_config.event_handle = mqtt_event_handler;
-    mqtt_config.user_context = NULL;
-    mqtt_config.cert_pem = (const char*)ca_pem;
-  #endif  // ESP_ARDUINO_VERSION_MAJOR
-
-    mqtt_client = esp_mqtt_client_init(&mqtt_config);
-
-    if (mqtt_client == NULL) {
-      Logger.Error("Failed creating mqtt client");
-      return 1;
-    }
-
-  #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
-    esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, mqtt_event_handler, NULL);
-  #endif  // ESP_ARDUINO_VERSION_MAJOR
-
-    esp_err_t start_result = esp_mqtt_client_start(mqtt_client);
-
-    if (start_result != ESP_OK) {
-      Logger.Error("Could not start mqtt client; error code:" + start_result);
-      return 1;
-    } else {
-      Logger.Info("MQTT client started");
-      return 0;
-    }
-  }  
-
-#endif
-
-#ifdef USE_MQQT_BROKER
-  static void handleBrokerMessage(int messageSize)
-  {
-    Logger.Info("[MQTT] Message received: topic=" + brokerClient.messageTopic() +
-      ", bytes=" + String(messageSize) + ", QoS=" + String(brokerClient.messageQoS()) +
-      ", retained=" + String(brokerClient.messageRetain()));
-    if (brokerClient.messageTopic() != brokerCommandTopic ||
-        messageSize <= 0 || messageSize >= INCOMING_DATA_BUFFER_SIZE)
-    {
-      Logger.Error("[MQTT] Rejecting command: expected topic=" + brokerCommandTopic +
-        ", allowed bytes=1.." + String(INCOMING_DATA_BUFFER_SIZE - 1) + "; closing connection");
-      brokerClient.stop();
-      return;
-    }
-
-    size_t length = 0;
-    unsigned long started = millis();
-    while (length < (size_t)messageSize && millis() - started < MQTT_BROKER_TIMEOUT_MS)
-    {
-      int value = brokerClient.read();
-      if (value < 0)
-      {
-        break;
-      }
-      incoming_data[length++] = (char)value;
-      esp_task_wdt_reset();
-    }
-    if (length != (size_t)messageSize || memchr(incoming_data, '\0', length) != nullptr)
-    {
-      Logger.Error("[MQTT] Rejecting incomplete or invalid command: read " +
-        String(length) + "/" + String(messageSize) + " bytes; closing connection");
-      brokerClient.stop();
-      return;
-    }
-    incoming_data[length] = '\0';
-    Logger.Info("[MQTT] Command: " + String(incoming_data));
-    Logger.Info("[MQTT] Dispatching command to shared command handler");
-    handleCommand();
-  }
-
-  static void initializeBrokerClient()
-  {
-    brokerMeasurementTopic.replace("{IOT_CONFIG_DEVICE_ID}", IOT_CONFIG_DEVICE_ID);
-    brokerCommandTopic.replace("{IOT_CONFIG_DEVICE_ID}", IOT_CONFIG_DEVICE_ID);
-    Logger.Info("[MQTT] Initializing ArduinoMqttClient");
-    Logger.Info("[MQTT] Broker=" + String(MQTT_BROKER_HOST) + ":" + String(MQTT_BROKER_PORT) +
-      ", client ID=" + String(IOT_CONFIG_DEVICE_ID));
-    Logger.Info("[MQTT] Measurements topic=" + brokerMeasurementTopic);
-    Logger.Info("[MQTT] Commands topic=" + brokerCommandTopic);
-    Logger.Info("[MQTT] Username/password authentication=" +
-      String(strlen(MQTT_BROKER_USERNAME) > 0 ? "enabled" : "disabled"));
-    #if MQTT_BROKER_USE_TLS
-      Logger.Info("[MQTT] TLS enabled; certificate verification required");
-      #ifdef USE_MQTT_ROOT_CA
-        Logger.Info("[MQTT] Root CA configured: " + String(strlen(mqtt_root_ca)) + " bytes");
-        if (strlen(mqtt_root_ca) == 0)
-        {
-          Logger.Error("[MQTT] Root CA is empty; configure mqtt_root_ca before connecting");
-        }
-        brokerTransport.setCACert(mqtt_root_ca);
-      #else
-        Logger.Error("[MQTT] Root CA not configured: define USE_MQTT_ROOT_CA and mqtt_root_ca");
-      #endif
-      brokerTransport.setHandshakeTimeout(MQTT_BROKER_TIMEOUT_MS / 1000);
-    #else
-      Logger.Info("[MQTT] TLS disabled; connection and credentials are not encrypted");
-    #endif
-    brokerTransport.setConnectionTimeout(MQTT_BROKER_TIMEOUT_MS);
-    brokerClient.setConnectionTimeout(MQTT_BROKER_TIMEOUT_MS);
-    brokerClient.setTimeout(MQTT_BROKER_TIMEOUT_MS);
-    brokerClient.setId(IOT_CONFIG_DEVICE_ID);
-    brokerClient.setUsernamePassword(MQTT_BROKER_USERNAME, MQTT_BROKER_PASSWORD);
-    brokerClient.setCleanSession(true);
-    brokerClient.setKeepAliveInterval(30 * 1000UL);
-    brokerClient.onMessage(handleBrokerMessage);
-    Logger.Info("[MQTT] Keepalive=30 s, timeout=" + String(MQTT_BROKER_TIMEOUT_MS) +
-      " ms, reconnect interval=" + String(MQTT_BROKER_RECONNECT_INTERVAL_MS) + " ms");
-  }
-
-  static void serviceBrokerClient()
-  {
-    if (brokerClient.connected())
-    {
-      brokerWasConnected = true;
-      brokerClient.poll();
-      if (brokerClient.connected() && millis() - lastBrokerStatusLog >= 30 * 1000UL)
-      {
-        lastBrokerStatusLog = millis();
-        Logger.Info("[MQTT] Still connected; listening on " + brokerCommandTopic);
-      }
-      return;
-    }
-    if (brokerWasConnected)
-    {
-      brokerWasConnected = false;
-      Logger.Error("[MQTT] Connection closed; reconnect and resubscription required");
-    }
-    if (brokerConnectionAttempted &&
-        millis() - lastBrokerConnectionAttempt < MQTT_BROKER_RECONNECT_INTERVAL_MS)
-    {
-      return;
-    }
-    brokerConnectionAttempted = true;
-    brokerConnectionAttempts++;
-    unsigned long started = millis();
-    Logger.Info("[MQTT] Connection attempt #" + String(brokerConnectionAttempts) +
-      " to " + String(MQTT_BROKER_HOST) + ":" + String(MQTT_BROKER_PORT));
-    esp_task_wdt_reset();
-    bool connected = false;
-    #if MQTT_BROKER_USE_TLS && !defined(USE_MQTT_ROOT_CA)
-      Logger.Error("[MQTT] TLS requires USE_MQTT_ROOT_CA and mqtt_root_ca");
-    #else
-      connected = brokerClient.connect(MQTT_BROKER_HOST, MQTT_BROKER_PORT);
-    #endif
-    esp_task_wdt_reset();
-    if (connected)
-    {
-      Logger.Info("[MQTT] Broker accepted connection after " + String(millis() - started) + " ms");
-      Logger.Info("[MQTT] Subscribing to " + brokerCommandTopic + " with QoS 1");
-    }
-    else
-    {
-      Logger.Error("[MQTT] Connect failed after " + String(millis() - started) +
-        " ms; connectError=" + String(brokerClient.connectError()) +
-        " (-2=transport failure, -1=timeout, 1=protocol, 2=client ID, 3=unavailable, 4=credentials, 5=unauthorized)");
-      #if MQTT_BROKER_USE_TLS
-        char tlsError[160] = {};
-        int tlsErrorCode = brokerTransport.lastError(tlsError, sizeof(tlsError));
-        if (tlsErrorCode != 0)
-        {
-          Logger.Error("[MQTT] TLS error " + String(tlsErrorCode) + ": " + String(tlsError));
-        }
-      #endif
-    }
-    bool subscribed = connected && brokerClient.subscribe(brokerCommandTopic, MQTT_QOS1);
-    esp_task_wdt_reset();
-    lastBrokerConnectionAttempt = millis();
-    if (!subscribed)
-    {
-      if (connected)
-      {
-        Logger.Error("[MQTT] Subscription failed: granted QoS=" + String(brokerClient.subscribeQoS()) +
-          " (128=refused); check broker topic permissions");
-      }
-      brokerClient.stop();
-      communicationErrorCount++;
-      setStatus(0);
-      printCommunicationError();
-      Logger.Info("[MQTT] Retrying connection in " + String(MQTT_BROKER_RECONNECT_INTERVAL_MS) + " ms");
-      return;
-    }
-    communicationErrorCount = 0;
-    brokerWasConnected = true;
-    lastBrokerStatusLog = millis();
-    setStatus(3);
-    Logger.Info("[MQTT] Subscription confirmed: topic=" + brokerCommandTopic +
-      ", granted QoS=" + String(brokerClient.subscribeQoS()));
-  }
-
-  static int publishTelemetryToBroker()
-  {
-    unsigned long started = millis();
-    Logger.Info("[MQTT] Publishing telemetry: topic=" + brokerMeasurementTopic +
-      ", bytes=" + String(telemetry_payload.length()) + ", QoS=1, retained=0");
-    esp_task_wdt_reset();
-    bool published = brokerClient.beginMessage(
-      brokerMeasurementTopic, (unsigned long)telemetry_payload.length(), false, MQTT_QOS1);
-    if (!published)
-    {
-      Logger.Error("[MQTT] Failed writing publish header");
-    }
-    if (published)
-    {
-      size_t written = brokerClient.write(
-        (const uint8_t*)telemetry_payload.c_str(), telemetry_payload.length());
-      published = written == telemetry_payload.length();
-      if (!published)
-      {
-        Logger.Error("[MQTT] Incomplete telemetry write: " + String(written) +
-          "/" + String(telemetry_payload.length()) + " bytes");
-      }
-    }
-    if (published)
-    {
-      Logger.Info("[MQTT] Payload written; waiting for broker acknowledgement (PUBACK)");
-      published = brokerClient.endMessage() == 1;
-      if (!published)
-      {
-        Logger.Error("[MQTT] Publish acknowledgement failed or timed out");
-      }
-    }
-    esp_task_wdt_reset();
-    if (!published)
-    {
-      Logger.Error("[MQTT] Failed publishing telemetry after " + String(millis() - started) +
-        " ms; closing connection");
-      brokerClient.stop();
-      communicationErrorCount++;
-      setStatus(0);
-      printCommunicationError();
-      return 0;
-    }
-    communicationErrorCount = 0;
-    Logger.Info("[MQTT] Telemetry acknowledged by broker after " + String(millis() - started) + " ms");
-    return 1;
   }
 #endif
 
@@ -737,12 +249,11 @@ static void establishConnection() {
   connectToWiFi();
   initializeTime();
   #ifdef USE_IOT_HUB
-    initializeIoTHubClient();
-    (void)initializeMqttClient();
+    IoTHub::begin();
   #endif
   #ifdef USE_MQQT_BROKER
-    initializeBrokerClient();
-    serviceBrokerClient();
+    MqttBroker::begin();
+    MqttBroker::service();
   #endif
 }
 
@@ -758,8 +269,7 @@ int calculateMeasurements()
   uint8_t failedReadings = 0;
   
   #ifdef USE_DISPLAY
-    display.clearDisplay();
-    display.setCursor(0,0);
+    clearDisplay();
   #endif
 
   for (Sensor* sensor : sensors) 
@@ -771,42 +281,8 @@ int calculateMeasurements()
 
     int sensorId = sensor->getSensorId();
     #ifdef USE_DISPLAY
-      String messageToPrint = String(sensorId) + ": ";
-      if (tempC != Sensor::ERROR_FAILED_READING && tempC != Sensor::ERROR_UNSUPPORTED) 
-      {
-        messageToPrint = messageToPrint + String(tempC) + " C";
-      } else if (tempC == Sensor::ERROR_FAILED_READING)
-      {
-        messageToPrint = messageToPrint + "ERR" + " C";
-      }
-      if (humi != Sensor::ERROR_FAILED_READING && humi != Sensor::ERROR_UNSUPPORTED)
-      {
-        messageToPrint = messageToPrint + ", " + String(humi) + " %";
-      } else if (humi == Sensor::ERROR_FAILED_READING) 
-      {
-        messageToPrint = messageToPrint + ", ERR" + " %";
-      }
-
-      if (lightV != Sensor::ERROR_FAILED_READING && lightV != Sensor::ERROR_UNSUPPORTED)
-      {
-        messageToPrint = messageToPrint + String(lightV) + " lx";
-      } else if (lightV == Sensor::ERROR_FAILED_READING)
-      {
-        messageToPrint = messageToPrint + "ERR" + " lx";
-      }
-
-      if (motionV >= 0) 
-      {
-        if (motionV) 
-        {
-          messageToPrint = messageToPrint + "ON";
-        } else 
-        {
-          messageToPrint = messageToPrint + "OFF";
-        }   
-      }
-      display.println(messageToPrint);                           
-    #endif  
+      printSensorReading(sensorId, tempC, humi, lightV, motionV);
+    #endif
     if (loopCount <= MEASURE_START_LOOP_LIMIT) 
     {
       sensor->resetAverages();
@@ -823,31 +299,11 @@ int calculateMeasurements()
     }
   }
   #ifdef USE_DISPLAY
-    int rowCount = sensors.size();
-    #ifdef MOTIONSENSOR_IN_PINS
-      #ifdef MOTIONSENSOR_DISPLAY_ON_DELAY
-        float delayInS = motionSensor->getOutputDelayLeft();
-        if (delayInS > 0) 
-        {
-          display.println("ON DELAY (s): " + String(delayInS));
-          rowCount++;
-        }
-      #endif
-    #endif   
-
-    if (rowCount < DISPLAY_ROW_COUNT) 
-    {
-      display.println("Measure count: " + String(measureCount) + "/" + String(MEASURE_LIMIT));
-      rowCount++;
-    }
-
-    if (rowCount < DISPLAY_ROW_COUNT) 
-    {
-      display.println("Sent messages: " + String(sentMessageCount));
-      rowCount++;
-    }
-
-    display.display();
+    MotionSensor* displayMotionSensor = nullptr;
+    #if defined(MOTIONSENSOR_IN_PINS) && defined(MOTIONSENSOR_DISPLAY_ON_DELAY)
+      displayMotionSensor = motionSensor;
+    #endif
+    showMeasurementFooter(sensors.size(), measureCount, MEASURE_LIMIT, sentMessageCount, displayMotionSensor);
   #endif
   if (loopCount <= MEASURE_START_LOOP_LIMIT) 
   {
@@ -941,223 +397,103 @@ static int generateTelemetryPayload(bool sendEmpty = false)
     }
   }
   serializeJson(doc, telemetry_payload);
-  measureCount = 0;
+
+  measureCount = 0; 
   lastRuuviMeasureCount = 0;
   Logger.Info("--IOT HUB message generated--");
   return 1;
 }
 
 #ifdef USE_HTTP_API
-  // Sends the JSON telemetry payload to the API endpoint.
-  // Returns 1 on success (HTTP 2xx), 0 otherwise.
-  static int postTelemetryToApi() 
+  #define ATTRIBUTE_READ_INTERVAL_MS 60000
+
+  static unsigned long lastAttributesReadMillis = 0;
+  static int lastDeviceStatus = 0;
+  static unsigned long indicationStatusSet = 0;
+
+  static int publishTelemetryToHttpApi()
   {
-    HTTPClient http;
-    WiFiClientSecure secureClient;
-
-    // If you've defined api_root_ca in iot_configs.h, load it to verify the HTTPS certificate;
-    // otherwise call setInsecure() for testing only.
-  #ifdef USE_API_ROOT_CA
-    secureClient.setCACert(api_root_ca);
-  #else
-    secureClient.setInsecure();
-  #endif
-  
-    int result = 0;
-    if (http.begin(secureClient, api_endpoint_url)) {
-      http.setTimeout(HTTP_TIMEOUT_MS);
-      http.addHeader("Content-Type", "application/json");
-
-      // Custom authentication headers defined in iot_configs.h
-      if (strlen(API_KEY_HEADER_NAME) > 0 && strlen(API_KEY_HEADER_VALUE) > 0) {
-        http.addHeader(API_KEY_HEADER_NAME, API_KEY_HEADER_VALUE);
-      }
-      if (strlen(SECRET_ID_HEADER_NAME) > 0 && strlen(SECRET_ID_HEADER_VALUE) > 0) {
-        http.addHeader(SECRET_ID_HEADER_NAME, SECRET_ID_HEADER_VALUE);
-      }
-      if (strlen(SECRET_VALUE_HEADER_NAME) > 0 && strlen(SECRET_VALUE_HEADER_VALUE) > 0) {
-        http.addHeader(SECRET_VALUE_HEADER_NAME, SECRET_VALUE_HEADER_VALUE);
-      }
-
-      // Post the telemetry payload (telemetry_payload holds the JSON string)
-      int httpCode = http.POST(telemetry_payload);
-      if (httpCode > 0 && httpCode < 300) {
-        Logger.Info("[HTTP] POST successful, code: " + String(httpCode));
-        result = 1;
-      } else {
-        Logger.Error("[HTTP] POST failed, code: " + String(httpCode));
-      }
-      http.end();
-    } else {
-      Logger.Error("[HTTP] Unable to connect to API endpoint");
+    int postResult = HttpApi::publishTelemetry(telemetry_payload);
+    if (postResult)
+    {
+      clearCommunicationErrors();
+    } else
+    {
+      reportCommunicationError();
     }
-    return result;
+    return postResult;
   }
 
-  static int readAttributesFromApi(int& motionControlStatus, unsigned long& onDelayMs) {
-    HTTPClient http;
-    WiFiClientSecure secureClient;
+  static void serviceHttpAttributes()
+  {
+    if (millis() - lastAttributesReadMillis > ATTRIBUTE_READ_INTERVAL_MS)
+    {
+      lastAttributesReadMillis = millis();
+      Logger.Info("Trying to read attributes");
+      int newStatus;
+      unsigned long newOnDelayMs;
 
-  #ifdef USE_API_ROOT_CA
-    secureClient.setCACert(api_root_ca);
-  #else
-    secureClient.setInsecure(); // testing only
-  #endif
-
-    motionControlStatus = 0;
-    onDelayMs = 0;
-
-    int result = 0;  
-    
-    if (http.begin(secureClient, api_attributes_url)) {
-      http.setTimeout(HTTP_TIMEOUT_MS);
-      // If your API needs to know what it returns, add Accept header
-      http.addHeader("Accept", "application/json");
-
-      // Same custom authentication headers as telemetry
-      if (strlen(API_KEY_HEADER_NAME) > 0 && strlen(API_KEY_HEADER_VALUE) > 0) {
-        http.addHeader(API_KEY_HEADER_NAME, API_KEY_HEADER_VALUE);
-      }
-      if (strlen(SECRET_ID_HEADER_NAME) > 0 && strlen(SECRET_ID_HEADER_VALUE) > 0) {
-        http.addHeader(SECRET_ID_HEADER_NAME, SECRET_ID_HEADER_VALUE);
-      }
-      if (strlen(SECRET_VALUE_HEADER_NAME) > 0 && strlen(SECRET_VALUE_HEADER_VALUE) > 0) {
-        http.addHeader(SECRET_VALUE_HEADER_NAME, SECRET_VALUE_HEADER_VALUE);
+      if (!HttpApi::readAttributes(newStatus, newOnDelayMs))
+      {
+        Logger.Error("[ATTR] Failed to read attributes");
+        return;
       }
 
-      int httpCode = http.GET();
-      if (httpCode > 0 && httpCode < 300) {
-        String payload = http.getString();
-        Logger.Info("[HTTP] Attributes GET successful, code: " + String(httpCode));
-        Logger.Info("[HTTP] Payload: " + payload); // enable if you want to debug
-
-        // Parse JSON payload
-        StaticJsonDocument<256> doc; // a bit larger than needed, still tiny
-        DeserializationError err = deserializeJson(doc, payload);
-
-        if (err) {
-          Logger.Error(String("[JSON] Parse failed: ") + err.c_str());
-        } else {
-          // Use defaults if fields are missing
-          // 0 = STATUS
-          // 1 = DELAY 
-          // STATUS (enum stored as int)
-          const char* statusStr = doc["0"] | "0";
-          motionControlStatus = atoi(statusStr);
-          // DELAY (milliseconds)
-          const char* delayStr = doc["1"] | "0";
-          onDelayMs = strtoul(delayStr, nullptr, 10);
-
-          Logger.Info("[ATTR] MotionControlStatus=" + String(motionControlStatus) +
-                      " OnDelay=" + String(onDelayMs));
-          result = 1;
+      Logger.Info("[ATTR] Attributes updated.");
+      Logger.Info("Status: " + String(newStatus));
+      Logger.Info("Delays: " + String(newOnDelayMs));
+      #ifdef MOTIONSENSOR_IN_PINS
+        bool statusChanged = motionSensor->setMotionControlStatus(static_cast<MotionControlStatus>(newStatus));
+        bool delayChanged = motionSensor->setMotionControlDelay(newOnDelayMs);
+        if (statusChanged || delayChanged)
+        {
+          lastDeviceStatus = deviceStatus;
+          indicationStatusSet = millis();
+          setStatus(4);
         }
-      } else {
-        Logger.Error("[HTTP] Attributes GET failed, code: " + String(httpCode));
-        // Optional: show error body if any
-        String errBody = http.getString();
-        if (errBody.length() > 0) {
-          Logger.Error("[HTTP] Error body: " + errBody);
-        }
+      #endif
+    } else if (indicationStatusSet > 0 && millis() - indicationStatusSet > 5000)
+    {
+      Logger.Info("Resetting status indicator");
+      indicationStatusSet = 0;
+      if (deviceStatus == 4)
+      {
+        setStatus(lastDeviceStatus);
       }
-
-      http.end();
-    } else {
-      Logger.Error("[HTTP] Unable to connect to attributes endpoint");
     }
-
-    return result;
   }  
+
 #endif
 
 static int sendTelemetry(bool sendEmpty = false) {
-  Logger.Info("Sending telemetry ...");   
+  Logger.Info("Sending telemetry ...");
 
   #ifdef USE_MQQT_BROKER
-    if (!brokerClient.connected())
+    if (!MqttBroker::canPublish())
     {
-      Logger.Error("[MQTT] Cannot send telemetry while disconnected");
       return 0;
     }
   #endif
-
   #ifdef USE_IOT_HUB
-    // The topic could be obtained just once during setup,
-    // however if properties are used the topic need to be generated again to reflect the
-    // current values of the properties.
-    if (az_result_failed(az_iot_hub_client_telemetry_get_publish_topic(
-          &client, NULL, telemetry_topic, sizeof(telemetry_topic), NULL))) {
-      Logger.Error("Failed az_iot_hub_client_telemetry_get_publish_topic");
+    if (!IoTHub::prepareTelemetryTopic())
+    {
       return 0;
     }
   #endif
 
-  if(!generateTelemetryPayload(sendEmpty)) 
+  if (!generateTelemetryPayload(sendEmpty))
   {
     Logger.Error("Failed to get sensor data");
     return 0;
   }
 
   #ifdef USE_IOT_HUB
-    if (esp_mqtt_client_publish(
-          mqtt_client,
-          telemetry_topic,
-          (const char*)telemetry_payload.c_str(),
-          telemetry_payload.length(),
-          MQTT_QOS1,
-          DO_NOT_RETAIN_MSG)
-        == 0) {
-      Logger.Error("Failed publishing");
-      return 0;
-    } else {
-      Logger.Info("Message published successfully");
-      return 1;
-    }  
-
+    return IoTHub::publishTelemetry(telemetry_payload);
   #elif defined(USE_MQQT_BROKER)
-    return publishTelemetryToBroker();
+    return MqttBroker::publishTelemetry(telemetry_payload);
   #elif defined(USE_HTTP_API)
-    int postResult = postTelemetryToApi();
-    if (postResult)
-    {
-      communicationErrorCount = 0;
-    } else 
-    {
-      setStatus(0);
-      communicationErrorCount++;  
-      printCommunicationError();
-    }
-    return postResult;
+    return publishTelemetryToHttpApi();
   #endif
-
-}
-
-void setStatus(int statusToSet) {
-
-  deviceStatus = statusToSet;
-  if (statusToSet == 0) {
-    digitalWrite(REDLEDPIN, HIGH);
-    digitalWrite(GREENLEDPIN, LOW);
-    digitalWrite(YELLOWLEDPIN, LOW);
-  } else if (statusToSet == 1) {
-    digitalWrite(REDLEDPIN, LOW);
-    digitalWrite(GREENLEDPIN, HIGH);
-    digitalWrite(YELLOWLEDPIN, LOW);
-  } else if (statusToSet == 2) {
-    digitalWrite(GREENLEDPIN, LOW);
-    digitalWrite(REDLEDPIN, LOW);
-    digitalWrite(YELLOWLEDPIN, LOW);
-  } else if (statusToSet == 3) 
-  {
-    digitalWrite(GREENLEDPIN, LOW);
-    digitalWrite(REDLEDPIN, LOW);
-    digitalWrite(YELLOWLEDPIN, HIGH);
-  } else if (statusToSet == 4) // Indicate read attributes
-  {
-    digitalWrite(GREENLEDPIN, HIGH);
-    digitalWrite(REDLEDPIN, LOW);
-    digitalWrite(YELLOWLEDPIN, HIGH);
-  }
 }
 
 bool parseMotionControlStatus(const String& message, MotionControlStatus& status) {
@@ -1198,45 +534,75 @@ esp_task_wdt_config_t twdt_config = {
 static void rebootDevice()
 {
   Logger.Error("REBOOTING");
-  bool hasCommunicationErrors = communicationErrorCount > COMMUNICATION_ERROR_LIMIT;
+  bool hasCommunicationErrors = communicationErrorCount.load() > COMMUNICATION_ERROR_LIMIT;
   if (hasCommunicationErrors) 
   {
     Logger.Info("Trying to restart due to communication errors");
-    Logger.Error("Communication errors: " + String(communicationErrorCount));
+    Logger.Error("Communication errors: " + String(communicationErrorCount.load()));
   }
 
   #ifdef USE_DISPLAY
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.println("REBOOTING");
-
-    if (hasCommunicationErrors) 
-    {
-      display.println("COMMUNICATION ERROR");
-      display.println("Count: " + String(communicationErrorCount));
-    }
-
-    display.display();
+    showReboot(hasCommunicationErrors, hasCommunicationErrors ? communicationErrorCount.load() : 0);
   #endif
   delay(5000);
   ESP.restart();
 }
 
-static void printCommunicationError()
-{
-  Logger.Error("COMMUNICATION ERROR");
-  Logger.Error("Count: " + String(communicationErrorCount));
+#ifdef RUUVI_MAC
+  static void setupRuuviSensors()
+  {
+    RuuviTagSensor* ruuviSensor = new RuuviTagSensor(RUUVI_MAC, RUUVI_SENSORID);
+    ruuviSensors.push_back(ruuviSensor);
+    sensors.push_back(ruuviSensor);
+    #ifdef RUUVI_MAC_2
+      RuuviTagSensor* ruuviSensor2 = new RuuviTagSensor(RUUVI_MAC_2, RUUVI_SENSORID_2);
+      ruuviSensors.push_back(ruuviSensor2);
+      sensors.push_back(ruuviSensor2);
+    #endif
+    scanner = new RuuviTagScanner(ruuviSensors);
+  }
+#endif
 
-  #ifdef USE_DISPLAY
-    display.clearDisplay();
-    display.setCursor(0, 0);
+#ifdef RUUVI_MAC
+  void initRuuvi()
+  {
+    Logger.Info("Free heap (before init) (bytes): " + String(ESP.getFreeHeap()));
+    esp_task_wdt_reset();
+    NimBLEDevice::init("ESP32-Ruuvi");
+    pBLEScan = BLEDevice::getScan();
+    pBLEScan->setScanCallbacks(scanner, false);
+    pBLEScan->setActiveScan(false);
+    pBLEScan->setMaxResults(0); // Using just the callback
+    pBLEScan->setInterval(100);
+    pBLEScan->setWindow(100);
+    Logger.Info("Free heap (after init) (bytes): " + String(ESP.getFreeHeap()));
+  }
 
-    display.println("COMMUNICATION ERROR");
-    display.println("Count: " + String(communicationErrorCount));
+  void readRuuvi()
+  {
+    esp_task_wdt_reset();
+    Logger.Info("Starting RUUVI SCAN");
+    pBLEScan->start(RUUVI_SCAN_TIME, false, true);
+    esp_task_wdt_reset();
+    Logger.Info("RUUVI SCAN DONE");
+    Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());
+  }
 
-    display.display();
-  #endif
-}
+  static void serviceRuuvi()
+  {
+    if (loopCount == 20 && !hasInitedRuuvi)
+    {
+      initRuuvi();
+      hasInitedRuuvi = true;
+    } else if (measureCount != lastRuuviMeasureCount && measureCount > 0 && measureCount % 20 == 0)
+    {
+      readRuuvi();
+      lastRuuviMeasureCount = measureCount;
+    }
+  }
+#endif
+
+
 
 // Arduino setup and loop main functions.
 void setup() 
@@ -1276,16 +642,8 @@ void setup()
   #endif 
 
   #ifdef RUUVI_MAC
-    RuuviTagSensor* ruuviSensor = new RuuviTagSensor(RUUVI_MAC, RUUVI_SENSORID);
-    ruuviSensors.push_back(ruuviSensor);
-    sensors.push_back(ruuviSensor);
-    #ifdef RUUVI_MAC_2
-      RuuviTagSensor* ruuviSensor2 = new RuuviTagSensor(RUUVI_MAC_2, RUUVI_SENSORID_2);
-      ruuviSensors.push_back(ruuviSensor2);
-      sensors.push_back(ruuviSensor2);
-    #endif
-    scanner = new RuuviTagScanner(ruuviSensors);
-  #endif 
+    setupRuuviSensors();
+  #endif
 
   for (Sensor* sensor : sensors)
   {
@@ -1299,32 +657,8 @@ void setup()
 
   pinMode(YELLOWLEDPIN, OUTPUT);
   setStatus(3);
-  // Display
   #ifdef USE_DISPLAY
-
-    #ifdef SH1106
-      display.begin(0x3C, true);
-    #else
-      if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
-        Serial.println(F("SSD1306 allocation failed"));
-        for(;;);
-      }
-    #endif
-    Logger.Info("DISPLAY INITED");
-    delay(2000);
-    Logger.Info("DISPLAY INITED. WILL PRINT");
-    display.clearDisplay();
-    display.setTextSize(DISPLAY_TEXT_SIZE);
-    #ifdef SH1106
-      display.setTextColor(SH110X_WHITE);
-    #else
-      display.setTextColor(WHITE);
-    #endif
-    display.setCursor(0,0);
-    // Display static text
-    display.println("App initing...");
-    display.display();
-    delay(2000);     
+    initDisplay();
   #endif
   Logger.Info("Establish connection");
   Serial.printf("Free heap (setup): %u bytes\n", ESP.getFreeHeap());
@@ -1332,37 +666,11 @@ void setup()
   Serial.printf("Free heap (after connection): %u bytes\n", ESP.getFreeHeap());
 }
 
-#ifdef RUUVI_MAC
-  void initRuuvi()
-  {
-    Logger.Info("Free heap (before init) (bytes): " + String(ESP.getFreeHeap()));
-    esp_task_wdt_reset();
-    NimBLEDevice::init("ESP32-Ruuvi");
-    pBLEScan = BLEDevice::getScan();
-    pBLEScan->setScanCallbacks(scanner, false);
-    pBLEScan->setActiveScan(false);
-    pBLEScan->setMaxResults(0); // Using just the callback
-    pBLEScan->setInterval(100);
-    pBLEScan->setWindow(100);
-    Logger.Info("Free heap (after init) (bytes): " + String(ESP.getFreeHeap()));
-  }
-
-  void readRuuvi()
-  {
-    esp_task_wdt_reset();
-    Logger.Info("Starting RUUVI SCAN");
-    pBLEScan->start(RUUVI_SCAN_TIME, false, true); 
-    esp_task_wdt_reset();
-    Logger.Info("RUUVI SCAN DONE");
-    Serial.printf("Free heap (after scan): %u bytes\n", ESP.getFreeHeap());  
-  }
-#endif
-
 void loop() {
   #ifdef USE_MQQT_BROKER
     if (WiFi.status() == WL_CONNECTED)
     {
-      serviceBrokerClient();
+      MqttBroker::service();
     }
   #endif
   if (WiFi.status() != WL_CONNECTED) 
@@ -1372,20 +680,18 @@ void loop() {
     connectToWiFi();
     setStatus(3);
   }
-  #ifdef USE_IOT_HUB
-    else if (sasToken.IsExpired()) 
+  #if defined(USE_IOT_HUB) && !defined(IOT_CONFIG_USE_X509_CERT)
+    else if (IoTHub::tokenExpired())
     {
-      Logger.Info("SAS token expired; reconnecting with a new one.");
-      (void)esp_mqtt_client_destroy(mqtt_client);
-      if (initializeMqttClient() != 0) {
+      if (!IoTHub::refreshToken())
+      {
         setStatus(0);
         Logger.Error("Failed to reinit MQTT client. Restarting...");
         rebootDevice();
       }
-      Logger.Info("SAS token refreshed");
     }
   #endif
-  else if (communicationErrorCount > COMMUNICATION_ERROR_LIMIT) 
+  else if (communicationErrorCount.load() > COMMUNICATION_ERROR_LIMIT)
   {
     setStatus(0);
     Logger.Info("Trying to restart due to communication errors");
@@ -1442,58 +748,11 @@ void loop() {
         successCount = 0;
       }
     }
-#ifdef USE_HTTP_API
-    if (millis() - lastAttributesReadMillis > ATTRIBUTE_READ_INTERVAL_MS)
-    {
-      lastAttributesReadMillis = millis();
-      Logger.Info("Trying to read attributes");
-      int newStatus;
-      unsigned long newOnDelayMs;
-
-      if (readAttributesFromApi(newStatus, newOnDelayMs))
-      {
-        Logger.Info("[ATTR] Attributes updated.");
-        Logger.Info("Status: " + String(newStatus));
-        Logger.Info("Delays: " + String(newOnDelayMs));
-        #ifdef MOTIONSENSOR_IN_PINS
-          bool statusChanged = motionSensor->setMotionControlStatus(static_cast<MotionControlStatus>(newStatus));
-          bool delayChanged  = motionSensor->setMotionControlDelay(newOnDelayMs);
-          if (statusChanged || delayChanged) 
-          {
-            lastDeviceStatus = deviceStatus;
-            indicationStatusSet = millis();
-            setStatus(4);
-          }          
-        #endif
-      }
-      else
-      {
-        Logger.Error("[ATTR] Failed to read attributes");
-      }
-    } else if (indicationStatusSet > 0) 
-    {
-      // RESET INDICATION STATUS
-      if (millis() - indicationStatusSet > 5000 )
-      {
-        Logger.Info("Resetting status indicator");
-        indicationStatusSet = 0;
-        if (deviceStatus == 4) 
-        {
-          setStatus(lastDeviceStatus);
-        }
-      }
-    }
-#endif
+    #ifdef USE_HTTP_API
+      serviceHttpAttributes();
+    #endif
     #ifdef RUUVI_MAC
-      if (loopCount == 20 && !hasInitedRuuvi)
-      {
-        initRuuvi();
-        hasInitedRuuvi = true;
-      } else if (measureCount != lastRuuviMeasureCount && measureCount > 0 && measureCount % 20 == 0)
-      {
-        readRuuvi();
-        lastRuuviMeasureCount = measureCount;
-      }
+      serviceRuuvi();
     #endif
   } else {
     if (millis() > 4000) 

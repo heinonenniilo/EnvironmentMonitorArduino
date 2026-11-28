@@ -2,6 +2,7 @@
 #define RUUVI_H
 
 #include <NimBLEAdvertisedDevice.h>
+#include <NimBLEDevice.h>
 #include <Arduino.h>
 #include "RuuviTagSensor.h"
 #include <vector>
