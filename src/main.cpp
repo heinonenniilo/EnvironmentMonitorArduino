@@ -6,7 +6,7 @@
 #include <time.h>
 #include <vector>
 
-#include "configs/pins.h"
+#include "Display.h"
 #include "transports/TransportConfig.h"
 
 #define CONFIG_FREERTOS_NUMBER_OF_CORES 1
@@ -21,19 +21,7 @@
 #include "sensors/MotionSensor.h"
 #include "sensors/TMP36Sensor.h"
 
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#ifdef USE_DISPLAY
-  #ifdef SH1106
-    #include <Adafruit_SH110X.h>
-  #else
-    #include <Adafruit_SSD1306.h>
-  #endif
-#endif
-
 #ifdef RUUVI_MAC
-  #include <NimBLEDevice.h>
-  #include <NimBLEAdvertisedDevice.h>
   #include "sensors/RuuviTagScanner.h"
 #endif
 
@@ -41,21 +29,6 @@
 #include "transports/IoTHub.h"
 #include "transports/MqttBroker.h"
 #include "transports/TransportEvents.h"
-
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define DISPLAY_TEXT_SIZE 1
-
-#ifdef USE_DISPLAY
-  #ifdef SH1106
-    #define DISPLAY_ROW_COUNT 8
-    #define SCREEN_HEIGHT 64
-    Adafruit_SH1106G display = Adafruit_SH1106G(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-  #else
-    #define DISPLAY_ROW_COUNT 4
-    #define SCREEN_HEIGHT 32
-    Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-  #endif
-#endif
 
 #define DEBUG 0
 #define RUUVI_SCAN_TIME 20000 // RUUVI SCAN TIME IN MS
@@ -66,12 +39,6 @@
 #define FIRST_MESSAGE_MILLIS 5000
 #define SUCCESS_LIMIT 3
 #define MEASURE_LIMIT 30
-
-#ifdef USE_IOT_HUB
-  #define COMMUNICATION_ERROR_LIMIT 12
-#else
-  #define COMMUNICATION_ERROR_LIMIT 5 // Causes boot in case sending measurements fails five times in a row
-#endif
 
 #define MEASURE_START_LOOP_LIMIT 6
 #define MOTION_DETECTION_SHUTDOWN_DELAY_MS 45000 // Set to 0 if controlled by sensor
@@ -102,7 +69,7 @@ enum class MeasurementTypes : int {
 static const char* ssid = IOT_CONFIG_WIFI_SSID;
 static const char* password = IOT_CONFIG_WIFI_PASSWORD;
 
-static String telemetry_payload = "{}";
+static String telemetry_payload = "{}"; // JSON payload for telemetry data
 
 // Status variables
 static std::atomic<int> communicationErrorCount{0};
@@ -215,13 +182,7 @@ static void printCommunicationError()
   Logger.Error("Count: " + String(communicationErrorCount.load()));
 
   #ifdef USE_DISPLAY
-    display.clearDisplay();
-    display.setCursor(0, 0);
-
-    display.println("COMMUNICATION ERROR");
-    display.println("Count: " + String(communicationErrorCount.load()));
-
-    display.display();
+    showCommunicationError(communicationErrorCount.load());
   #endif
 }
 
@@ -308,8 +269,7 @@ int calculateMeasurements()
   uint8_t failedReadings = 0;
   
   #ifdef USE_DISPLAY
-    display.clearDisplay();
-    display.setCursor(0,0);
+    clearDisplay();
   #endif
 
   for (Sensor* sensor : sensors) 
@@ -321,42 +281,8 @@ int calculateMeasurements()
 
     int sensorId = sensor->getSensorId();
     #ifdef USE_DISPLAY
-      String messageToPrint = String(sensorId) + ": ";
-      if (tempC != Sensor::ERROR_FAILED_READING && tempC != Sensor::ERROR_UNSUPPORTED) 
-      {
-        messageToPrint = messageToPrint + String(tempC) + " C";
-      } else if (tempC == Sensor::ERROR_FAILED_READING)
-      {
-        messageToPrint = messageToPrint + "ERR" + " C";
-      }
-      if (humi != Sensor::ERROR_FAILED_READING && humi != Sensor::ERROR_UNSUPPORTED)
-      {
-        messageToPrint = messageToPrint + ", " + String(humi) + " %";
-      } else if (humi == Sensor::ERROR_FAILED_READING) 
-      {
-        messageToPrint = messageToPrint + ", ERR" + " %";
-      }
-
-      if (lightV != Sensor::ERROR_FAILED_READING && lightV != Sensor::ERROR_UNSUPPORTED)
-      {
-        messageToPrint = messageToPrint + String(lightV) + " lx";
-      } else if (lightV == Sensor::ERROR_FAILED_READING)
-      {
-        messageToPrint = messageToPrint + "ERR" + " lx";
-      }
-
-      if (motionV >= 0) 
-      {
-        if (motionV) 
-        {
-          messageToPrint = messageToPrint + "ON";
-        } else 
-        {
-          messageToPrint = messageToPrint + "OFF";
-        }   
-      }
-      display.println(messageToPrint);                           
-    #endif  
+      printSensorReading(sensorId, tempC, humi, lightV, motionV);
+    #endif
     if (loopCount <= MEASURE_START_LOOP_LIMIT) 
     {
       sensor->resetAverages();
@@ -373,31 +299,11 @@ int calculateMeasurements()
     }
   }
   #ifdef USE_DISPLAY
-    int rowCount = sensors.size();
-    #ifdef MOTIONSENSOR_IN_PINS
-      #ifdef MOTIONSENSOR_DISPLAY_ON_DELAY
-        float delayInS = motionSensor->getOutputDelayLeft();
-        if (delayInS > 0) 
-        {
-          display.println("ON DELAY (s): " + String(delayInS));
-          rowCount++;
-        }
-      #endif
-    #endif   
-
-    if (rowCount < DISPLAY_ROW_COUNT) 
-    {
-      display.println("Measure count: " + String(measureCount) + "/" + String(MEASURE_LIMIT));
-      rowCount++;
-    }
-
-    if (rowCount < DISPLAY_ROW_COUNT) 
-    {
-      display.println("Sent messages: " + String(sentMessageCount));
-      rowCount++;
-    }
-
-    display.display();
+    MotionSensor* displayMotionSensor = nullptr;
+    #if defined(MOTIONSENSOR_IN_PINS) && defined(MOTIONSENSOR_DISPLAY_ON_DELAY)
+      displayMotionSensor = motionSensor;
+    #endif
+    showMeasurementFooter(sensors.size(), measureCount, MEASURE_LIMIT, sentMessageCount, displayMotionSensor);
   #endif
   if (loopCount <= MEASURE_START_LOOP_LIMIT) 
   {
@@ -636,17 +542,7 @@ static void rebootDevice()
   }
 
   #ifdef USE_DISPLAY
-    display.clearDisplay();
-    display.setCursor(0, 0);
-    display.println("REBOOTING");
-
-    if (hasCommunicationErrors) 
-    {
-      display.println("COMMUNICATION ERROR");
-      display.println("Count: " + String(communicationErrorCount.load()));
-    }
-
-    display.display();
+    showReboot(hasCommunicationErrors, hasCommunicationErrors ? communicationErrorCount.load() : 0);
   #endif
   delay(5000);
   ESP.restart();
@@ -761,32 +657,8 @@ void setup()
 
   pinMode(YELLOWLEDPIN, OUTPUT);
   setStatus(3);
-  // Display
   #ifdef USE_DISPLAY
-
-    #ifdef SH1106
-      display.begin(0x3C, true);
-    #else
-      if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
-        Serial.println(F("SSD1306 allocation failed"));
-        for(;;);
-      }
-    #endif
-    Logger.Info("DISPLAY INITED");
-    delay(2000);
-    Logger.Info("DISPLAY INITED. WILL PRINT");
-    display.clearDisplay();
-    display.setTextSize(DISPLAY_TEXT_SIZE);
-    #ifdef SH1106
-      display.setTextColor(SH110X_WHITE);
-    #else
-      display.setTextColor(WHITE);
-    #endif
-    display.setCursor(0,0);
-    // Display static text
-    display.println("App initing...");
-    display.display();
-    delay(2000);     
+    initDisplay();
   #endif
   Logger.Info("Establish connection");
   Serial.printf("Free heap (setup): %u bytes\n", ESP.getFreeHeap());

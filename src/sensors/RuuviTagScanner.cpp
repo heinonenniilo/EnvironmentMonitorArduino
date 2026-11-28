@@ -1,5 +1,4 @@
 #include "RuuviTagScanner.h"
-#include <NimBLEDevice.h>
 #include <string>
 
 RuuviTagScanner::RuuviTagScanner(const std::vector<RuuviTagSensor*>& registeredSensors) 

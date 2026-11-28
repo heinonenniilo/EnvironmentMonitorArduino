@@ -19,3 +19,9 @@
 #elif !defined(USE_IOT_HUB) && !defined(USE_HTTP_API)
   #error "Define USE_IOT_HUB, USE_HTTP_API, or USE_MQQT_BROKER in src/configs/iot_configs.h"
 #endif
+
+#ifdef USE_IOT_HUB
+  #define COMMUNICATION_ERROR_LIMIT 12
+#else
+  #define COMMUNICATION_ERROR_LIMIT 5
+#endif
